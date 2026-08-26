@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import json
 import re
-import shutil
 import subprocess
 import tempfile
 import textwrap
 import time
+import uuid
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 from fastapi import UploadFile
@@ -15,21 +18,49 @@ from fastapi import UploadFile
 from app.core.config import settings
 from app.schemas.models import MedicalRecord, Medicine, OcrConfirmRequest, OcrConfirmResponse
 from app.services import data_store
+from app.services.upload_service import detect_image_type
 
 
-def _safe_filename(name: str | None) -> str:
-    suffix = Path(name or "upload.jpg").suffix.lower() or ".jpg"
-    if suffix not in {".jpg", ".jpeg", ".png", ".bmp", ".webp"}:
-        suffix = ".jpg"
-    return f"ocr_{int(time.time() * 1000)}{suffix}"
+OCR_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ocr-job")
+OCR_JOBS: dict[str, dict[str, Any]] = {}
+OCR_JOBS_LOCK = Lock()
+MAX_OCR_IMAGE_SIZE = 15 * 1024 * 1024
+OCR_EXTENSIONS = {
+    "jpeg": ".jpg",
+    "png": ".png",
+    "gif": ".gif",
+    "webp": ".webp",
+    "heic": ".heic",
+}
+
+
+def _safe_filename(name: str | None, detected_type: str = "jpeg") -> str:
+    suffix = Path(name or "upload.jpg").suffix.lower()
+    expected = OCR_EXTENSIONS.get(detected_type, ".jpg")
+    allowed = {expected, ".jpeg" if expected == ".jpg" else expected}
+    if suffix not in allowed:
+        suffix = expected
+    return f"ocr_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}{suffix}"
 
 
 def _save_upload(file: UploadFile) -> Path:
+    if file is None:
+        raise ValueError("请上传需要识别的图片")
+
+    content = file.file.read()
+    if not content:
+        raise ValueError("上传的图片为空")
+    if len(content) > MAX_OCR_IMAGE_SIZE:
+        raise ValueError("图片大小不能超过 15MB")
+
+    detected_type = detect_image_type(content)
+    if detected_type is None:
+        raise ValueError("仅支持有效图片文件")
+
     output_dir = Path(settings.ocr_output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    image_path = output_dir / _safe_filename(file.filename)
-    with image_path.open("wb") as target:
-        shutil.copyfileobj(file.file, target)
+    image_path = output_dir / _safe_filename(file.filename, detected_type)
+    image_path.write_bytes(content)
     return image_path
 
 
@@ -176,11 +207,7 @@ def _extract_medicine_fields(texts: list[str]) -> list[dict[str, Any]]:
     return fields[:8]
 
 
-def scan_upload(file: UploadFile, source_type: str = "report") -> dict[str, Any]:
-    if file is None:
-        raise ValueError("请上传需要识别的图片")
-
-    image_path = _save_upload(file)
+def _scan_image_path(image_path: Path, original_filename: str = "", source_type: str = "report") -> dict[str, Any]:
     result = _run_ppstructure(image_path)
     pages = result["raw"]
     page = pages[0] if pages else {}
@@ -202,11 +229,59 @@ def scan_upload(file: UploadFile, source_type: str = "report") -> dict[str, Any]
             "height": page.get("height"),
             "angle": page.get("doc_preprocessor_res", {}).get("angle"),
         },
-        "file": file.filename or image_path.name,
+        "file": original_filename or image_path.name,
         "storedFile": str(image_path),
         "outputDir": result["output_dir"],
         "message": "PaddleOCR PPStructureV3 识别完成，请核对后再入库。",
     }
+
+
+def scan_upload(file: UploadFile, source_type: str = "report") -> dict[str, Any]:
+    image_path = _save_upload(file)
+    return _scan_image_path(image_path, file.filename or image_path.name, source_type)
+
+
+def _utc_now() -> str:
+    return datetime.utcnow().isoformat(timespec="seconds") + "Z"
+
+
+def _update_job(job_id: str, **changes: Any) -> None:
+    with OCR_JOBS_LOCK:
+        OCR_JOBS[job_id].update(changes)
+
+
+def _run_scan_job(job_id: str, image_path: Path, original_filename: str, source_type: str) -> None:
+    _update_job(job_id, status="processing", startedAt=_utc_now(), message="OCR 识别中")
+    try:
+        result = _scan_image_path(image_path, original_filename, source_type)
+    except Exception as exc:
+        _update_job(job_id, status="failed", error=str(exc), completedAt=_utc_now(), message="OCR 识别失败")
+        return
+    _update_job(job_id, status="succeeded", result=result, completedAt=_utc_now(), message="OCR 识别完成")
+
+
+def submit_scan_job(file: UploadFile, source_type: str = "report") -> dict[str, Any]:
+    image_path = _save_upload(file)
+    job_id = uuid.uuid4().hex
+    job = {
+        "jobId": job_id,
+        "status": "queued",
+        "sourceType": source_type,
+        "createdAt": _utc_now(),
+        "message": "OCR 任务已创建",
+    }
+    with OCR_JOBS_LOCK:
+        OCR_JOBS[job_id] = job
+    OCR_EXECUTOR.submit(_run_scan_job, job_id, image_path, file.filename or image_path.name, source_type)
+    return job.copy()
+
+
+def get_scan_job(job_id: str) -> dict[str, Any]:
+    with OCR_JOBS_LOCK:
+        job = OCR_JOBS.get(job_id)
+        if job is None:
+            raise KeyError(job_id)
+        return job.copy()
 
 
 def _field_value(fields: list[dict[str, Any]], labels: tuple[str, ...]) -> str:

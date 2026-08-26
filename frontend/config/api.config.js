@@ -13,6 +13,7 @@ export const API_ENDPOINTS = {
   ocr: {
     scanReport: '/ocr/reports/scan',
     scanMedicine: '/ocr/medicines/scan',
+    job: '/ocr/jobs/:id',
     confirm: '/ocr/confirm'
   },
   upload: {

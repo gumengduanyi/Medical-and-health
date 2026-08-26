@@ -7,6 +7,17 @@ from sqlalchemy.sql import func
 from app.db.session import Base
 
 
+class UserORM(Base):
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    openid: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    nickname: Mapped[str] = mapped_column(String(128), nullable=False, default="微信用户")
+    avatar_url: Mapped[str] = mapped_column(String(512), nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
 class HealthProfileORM(Base):
     __tablename__ = "health_profiles"
 

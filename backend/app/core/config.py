@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./health_assistant.db"
     upload_dir: str = "./uploads"
     public_base_url: str = ""
+    auth_token_secret: str = "dev-health-assistant-change-me"
+    auth_token_ttl_seconds: int = 7 * 24 * 60 * 60
     vector_db_url: str = ""
     vector_collection: str = "health_documents_bge_m3"
     local_llm_base_url: str = "http://localhost:11434"

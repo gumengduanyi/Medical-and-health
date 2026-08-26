@@ -17,6 +17,8 @@ DATABASE_URL=mysql+pymysql://user:password@localhost:3306/health_assistant
 UPLOAD_DIR=./uploads
 # 手机扫码访问时使用可被手机访问的局域网地址，例如 http://192.168.1.100:8000
 PUBLIC_BASE_URL=
+AUTH_TOKEN_SECRET=change-me-in-production
+AUTH_TOKEN_TTL_SECONDS=604800
 VECTOR_DB_URL=http://localhost:6333
 LOCAL_LLM_BASE_URL=http://localhost:11434
 LOCAL_LLM_MODEL=qwen3:14b
@@ -87,8 +89,9 @@ OCR_TIMEOUT_SECONDS=600
 
 接口：
 
-- `POST /api/ocr/reports/scan`：上传报告、化验单、诊断记录图片，返回 `texts`、`layout`、结构化 `fields` 和可视化输出目录。
-- `POST /api/ocr/medicines/scan`：上传药盒或药品图片，返回 OCR 文本和药品相关候选字段。
+- `POST /api/ocr/reports/scan`：上传报告、化验单、诊断记录图片，创建 OCR 异步任务并返回 `jobId`。
+- `POST /api/ocr/medicines/scan`：上传药盒或药品图片，创建 OCR 异步任务并返回 `jobId`。
+- `GET /api/ocr/jobs/{job_id}`：查询 OCR 任务状态，成功后返回 `texts`、`layout`、结构化 `fields` 和可视化输出目录。
 - `GET /api/upload/qrcode`：生成指向手机拍照页的二维码；可通过 `PUBLIC_BASE_URL` 配置局域网地址。
 - `POST /api/upload/photo`：保存手机上传的图片并记录上传资产。
 - `GET /upload/camera`：手机拍照或相册选择上传页。

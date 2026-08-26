@@ -3,6 +3,32 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+class AuthLoginRequest(BaseModel):
+    code: str = ""
+    nickname: str = "微信用户"
+    avatar_url: str = Field(default="", alias="avatarUrl")
+
+    model_config = {"populate_by_name": True}
+
+
+class UserProfile(BaseModel):
+    id: str
+    openid: str = ""
+    nickname: str = "微信用户"
+    avatar_url: str = Field(default="", alias="avatarUrl")
+
+    model_config = {"populate_by_name": True}
+
+
+class AuthLoginResponse(BaseModel):
+    token: str
+    access_token: str = Field(alias="accessToken")
+    user: UserProfile
+    expires_in: int = Field(alias="expiresIn")
+
+    model_config = {"populate_by_name": True}
+
+
 class HealthProfile(BaseModel):
     id: str = "profile_001"
     name: str = "王先生"
