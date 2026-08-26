@@ -1,0 +1,97 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": { "navigationBarTitleText": "首页" }
+    },
+    {
+      "path": "pages/medication/medication",
+      "style": { "navigationBarTitleText": "智慧药箱" }
+    },
+    {
+      "path": "pages/health_records/health_records",
+      "style": { "navigationBarTitleText": "健康档案" }
+    },
+    {
+      "path": "pages/mine/mine",
+      "style": { "navigationBarTitleText": "我的" }
+    },
+    {
+      "path": "pages/scan_upload/scan_upload",
+      "style": { "navigationBarTitleText": "扫码拍照上传" }
+    }
+  ],
+  "subPackages": [
+    {
+      "root": "pages-sub",
+      "pages": [
+        {
+          "path": "healthInfo/healthInfo",
+          "style": { "navigationBarTitleText": "个人健康信息" }
+        },
+        {
+          "path": "ocr_scan/ocr_scan",
+          "style": { "navigationBarTitleText": "OCR报告识别" }
+        },
+        {
+          "path": "medicine_form/medicine_form",
+          "style": { "navigationBarTitleText": "药品录入" }
+        },
+        {
+          "path": "ai_chat/ai_chat",
+          "style": { "navigationBarTitleText": "AI健康问答" }
+        }
+      ]
+    }
+  ],
+  "preloadRule": {
+    "pages/index/index": {
+      "network": "all",
+      "packages": ["pages-sub"]
+    },
+    "pages/medication/medication": {
+      "network": "all",
+      "packages": ["pages-sub"]
+    },
+    "pages/health_records/health_records": {
+      "network": "all",
+      "packages": ["pages-sub"]
+    },
+    "pages/mine/mine": {
+      "network": "all",
+      "packages": ["pages-sub"]
+    }
+  },
+  "tabBar": {
+    "color": "#94A3B8",
+    "selectedColor": "#10B981",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "static/icons/home.png",
+        "selectedIconPath": "static/icons/home-active.png"
+      },
+      {
+        "pagePath": "pages/medication/medication",
+        "text": "药箱",
+        "iconPath": "static/icons/medicine.png",
+        "selectedIconPath": "static/icons/medicine-active.png"
+      },
+      {
+        "pagePath": "pages/health_records/health_records",
+        "text": "档案",
+        "iconPath": "static/icons/record.png",
+        "selectedIconPath": "static/icons/record-active.png"
+      },
+      {
+        "pagePath": "pages/mine/mine",
+        "text": "我的",
+        "iconPath": "static/icons/mine.png",
+        "selectedIconPath": "static/icons/mine-active.png"
+      }
+    ]
+  }
+}

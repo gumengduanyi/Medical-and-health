@@ -1,0 +1,15 @@
+.venv/
+node_modules/
+unpackage/
+.hbuilderx/
+.DS_Store
+._*
+backend/node_modules/
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.env
+backend/health_assistant.db
+backend/uploads/*
+!backend/uploads/.gitkeep
+frontend/unpackage/
