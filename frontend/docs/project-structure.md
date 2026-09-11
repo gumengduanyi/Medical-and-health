@@ -33,7 +33,10 @@ pages-recovered/ocr_scan/           OCR 报告识别
 pages-recovered/ai_chat/            AI 健康问答
 ```
 
-## 后端接入位置
+## 当前整合
+
+扫码拍照上传入口已整合到 `pages-sub/ocr_scan/ocr_scan.vue`，该页面同时提供小程序内拍照/选图 OCR 和手机扫码上传二维码。原 `pages/scan_upload/scan_upload.vue` 暂时保留以兼容旧路由，但“我的”页面已统一跳转到 OCR 页面。
+
 
 - 修改接口基础地址：`config/api.config.js`
 - 新增接口模块：`services/modules/*.service.js`

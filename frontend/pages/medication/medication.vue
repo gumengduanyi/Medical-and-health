@@ -144,7 +144,7 @@ export default {
 .notice-icon { width: 32rpx; height: 32rpx; flex-shrink: 0; }.notice-text { flex: 1; font-size: 24rpx; line-height: 1.5; color: #9A3412; font-weight: 700; }
 .med-entry-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16rpx; margin-top: 22rpx; }
 .entry-card { min-height: 138rpx; padding: 20rpx 14rpx; border-radius: 16rpx; background: #fff; box-shadow: 0 8rpx 22rpx rgba(15, 23, 42, .05); box-sizing: border-box; border: 1rpx solid #EEF2F7; }.entry-card.primary { background: #ECFDF5; border-color: #A7F3D0; }.entry-icon { display: block; width: 36rpx; height: 36rpx; }.entry-title { display: block; margin-top: 10rpx; font-size: 24rpx; line-height: 1.25; color: #1E293B; font-weight: 900; }.entry-desc { display: block; margin-top: 8rpx; font-size: 20rpx; color: #64748B; line-height: 1.25; }
-.section-card, .medicine-card, .ai-tip-card { margin-top: 24rpx; padding: 30rpx; border-radius: 16rpx; background: #fff; box-shadow: 0 8rpx 22rpx rgba(15, 23, 42, .05); }
+.section-card, .medicine-card, .ai-tip-card { margin-top: 24rpx; padding: 30rpx; border: 1rpx solid #E8F0F2; border-radius: 16rpx; background: #fff; box-shadow: 0 8rpx 22rpx rgba(15, 23, 42, .05); }
 .section-head { display: flex; justify-content: space-between; align-items: center; }
 .section-title { font-size: 31rpx; font-weight: 900; color: #1E293B; }
 .section-subtitle { font-size: 23rpx; color: #94A3B8; }

@@ -153,7 +153,7 @@ export default {
 .score-line { height: 8rpx; margin-top: 16rpx; border-radius: 999rpx; background: rgba(255,255,255,.22); overflow: hidden; }
 .score-fill { width: 82%; height: 100%; border-radius: 999rpx; background: #FFFFFF; }
 .summary-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14rpx; margin-top: 18rpx; }
-.summary-item { padding: 20rpx 12rpx; border-radius: 16rpx; background: #FFFFFF; text-align: center; box-shadow: 0 8rpx 22rpx rgba(15, 23, 42, .05); }
+.summary-item { padding: 20rpx 12rpx; border-radius: 16rpx; background: #FFFFFF; border: 1rpx solid #E8F0F2; text-align: center; box-shadow: 0 8rpx 22rpx rgba(15, 23, 42, .05); }
 .summary-value { display: block; font-size: 34rpx; line-height: 1; color: #0F766E; font-weight: 900; }
 .summary-item.warning .summary-value { color: #D97706; }
 .summary-label { display: block; margin-top: 10rpx; font-size: 21rpx; color: #64748B; }

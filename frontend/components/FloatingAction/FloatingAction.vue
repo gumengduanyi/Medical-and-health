@@ -5,7 +5,6 @@
     @touchstart.stop="onTouchStart"
     @touchmove.stop.prevent="onTouchMove"
     @touchend.stop="onTouchEnd"
-    @tap.stop="handleTap"
   >
     <view class="fab-core">
       <view class="fab-glow"></view>
@@ -112,6 +111,7 @@ export default {
       try {
         uni.setStorageSync('floating_action_position', { x: this.x, y: this.y })
       } catch (e) {}
+      if (!this.moved) this.handleTap()
     },
     schedulePositionUpdate() {
       if (this.dragFrame) return
@@ -130,7 +130,6 @@ export default {
     },
     handleTap() {
       if (this.moved) return
-      if (Date.now() - this.startTime > 260) return
       smoothNavigateTo(this.url)
     }
   }

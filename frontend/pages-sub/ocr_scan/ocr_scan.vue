@@ -15,12 +15,19 @@
         <image class="scan-image" src="/static/icons/report.png" mode="aspectFit" />
       </view>
       <text class="scan-title">选择识别资料类型</text>
-      <text class="scan-desc">建议保持文字完整、光线充足，识别完成后请手动确认关键指标。</text>
+      <text class="scan-desc">可直接拍照或从相册选择；也可以复制下方地址，用手机浏览器拍照上传。</text>
       <view class="scan-actions">
         <button class="scan-btn primary" @click="chooseAndScan('report', '体检报告')">体检报告</button>
         <button class="scan-btn" @click="chooseAndScan('diagnosis', '诊断记录')">诊断记录</button>
         <button class="scan-btn" @click="chooseAndScan('lab', '化验单')">化验单</button>
         <button class="scan-btn" @click="chooseAndScan('medicine', '药品信息')">药品信息</button>
+      </view>
+      <view class="remote-upload">
+        <text class="remote-title">手机扫码上传</text>
+        <text class="remote-desc">适合在电脑端查看本页面、用手机补拍资料</text>
+        <image class="qr-image" :src="qrCodeUrl" mode="aspectFit" @error="onQrError" />
+        <text class="scan-url">{{ scanUrl }}</text>
+        <button class="scan-btn" @click="copyUrl">复制手机上传地址</button>
       </view>
     </view>
 
@@ -44,6 +51,7 @@
 </template>
 
 <script>
+import { API_CONFIG } from '@/config/api.config.js'
 import { confirmOcrResult, scanMedicine, scanReport } from '@/services/modules/ocr.service.js'
 
 export default {
@@ -59,7 +67,21 @@ export default {
       storedFile: ''
     }
   },
+  computed: {
+    qrCodeUrl() {
+      return `${API_CONFIG.baseURL}/upload/qrcode?t=${Date.now()}`
+    },
+    scanUrl() {
+      return `${API_CONFIG.baseURL.replace(/\/api$/, '')}/upload/camera`
+    }
+  },
   methods: {
+    copyUrl() {
+      uni.setClipboardData({ data: this.scanUrl })
+    },
+    onQrError() {
+      uni.showToast({ title: '二维码加载失败', icon: 'none' })
+    },
     chooseAndScan(type, label) {
       this.sourceType = type
       this.sourceLabel = label
@@ -129,11 +151,12 @@ export default {
 .page-container { min-height: 100vh; padding: 28rpx 28rpx 80rpx; background: linear-gradient(180deg, #EEF2FF 0%, #F8FAFC 34%, #F8FAFC 100%); box-sizing: border-box; }
 .header-card { display: flex; justify-content: space-between; align-items: center; gap: 20rpx; padding: 36rpx; border-radius: 18rpx; color: #fff; background: linear-gradient(135deg, #2563EB, #0F766E); box-shadow: 0 16rpx 36rpx rgba(37,99,235,.18); }
 .page-title { display: block; font-size: 40rpx; font-weight: 900; }.page-desc { display: block; margin-top: 10rpx; font-size: 24rpx; line-height: 1.5; opacity: .9; }.header-icon-wrap { width: 86rpx; height: 86rpx; border-radius: 16rpx; background: rgba(255,255,255,.18); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }.header-icon { width: 48rpx; height: 48rpx; }
-.scan-card, .result-card { margin-top: 24rpx; padding: 32rpx; border-radius: 16rpx; background: #fff; box-shadow: 0 8rpx 22rpx rgba(15,23,42,.05); }
+.scan-card, .result-card { margin-top: 24rpx; padding: 32rpx; border: 1rpx solid #E8F0F2; border-radius: 16rpx; background: #fff; box-shadow: 0 8rpx 22rpx rgba(15,23,42,.05); }
 .scan-frame { position: relative; width: 100%; height: 280rpx; border-radius: 16rpx; background: linear-gradient(135deg, #F8FAFC, #EFF6FF); display: flex; align-items: center; justify-content: center; }
 .scan-image { width: 88rpx; height: 88rpx; }.corner { position: absolute; width: 46rpx; height: 46rpx; border-color: #0F766E; border-style: solid; }.top-left { left: 26rpx; top: 26rpx; border-width: 6rpx 0 0 6rpx; }.top-right { right: 26rpx; top: 26rpx; border-width: 6rpx 6rpx 0 0; }.bottom-left { left: 26rpx; bottom: 26rpx; border-width: 0 0 6rpx 6rpx; }.bottom-right { right: 26rpx; bottom: 26rpx; border-width: 0 6rpx 6rpx 0; }
 .scan-title { display: block; margin-top: 28rpx; font-size: 32rpx; color: #1E293B; font-weight: 900; }.scan-desc { display: block; margin-top: 12rpx; font-size: 25rpx; color: #64748B; line-height: 1.55; }
 .scan-actions { display: grid; gap: 16rpx; margin-top: 26rpx; }.scan-btn, .save-btn { height: 84rpx; line-height: 84rpx; border-radius: 14rpx; border: none; background: #F1F5F9; color: #334155; font-size: 28rpx; font-weight: 800; }.scan-btn.primary, .save-btn { background: #0F766E; color: #fff; }
+.remote-upload { margin-top: 32rpx; padding-top: 28rpx; border-top: 1rpx solid #E2E8F0; text-align: center; }.remote-title { display: block; color: #1E293B; font-size: 28rpx; font-weight: 900; }.remote-desc { display: block; margin-top: 8rpx; color: #64748B; font-size: 23rpx; }.qr-image { width: 260rpx; height: 260rpx; margin: 18rpx auto 8rpx; }.scan-url { display: block; color: #64748B; font-size: 20rpx; word-break: break-all; margin-bottom: 14rpx; }
 .section-head { display: flex; justify-content: space-between; align-items: center; gap: 20rpx; }.section-title { font-size: 31rpx; color: #1E293B; font-weight: 900; }.confidence { padding: 6rpx 12rpx; border-radius: 999rpx; background: #EFF6FF; color: #2563EB; font-size: 22rpx; font-weight: 800; }
 .result-row { display: flex; justify-content: space-between; gap: 20rpx; padding: 22rpx 0; border-bottom: 1rpx solid #E2E8F0; }.result-label { color: #64748B; font-size: 25rpx; }.result-value { color: #1E293B; font-size: 25rpx; font-weight: 800; text-align: right; }.notice-box { margin-top: 22rpx; padding: 20rpx; border-radius: 14rpx; background: #FFF7ED; color: #9A3412; font-size: 24rpx; line-height: 1.5; }.save-btn { margin-top: 24rpx; }
 </style>
