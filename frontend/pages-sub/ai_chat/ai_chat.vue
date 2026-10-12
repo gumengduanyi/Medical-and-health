@@ -1,13 +1,15 @@
 <template>
   <view class="page-container">
-    <view class="header-card">
-      <view>
-        <text class="page-title">AI 健康问答</text>
-        <text class="page-desc">基于报告、药箱和健康档案，回答指标含义、用药注意和复诊建议。</text>
+    <view class="custom-nav">
+      <view class="status-bar"></view>
+      <view class="nav-content">
+        <view class="nav-back" @click="goBack"><text class="nav-back-icon">‹</text></view>
+        <text class="nav-title">AI 健康问答</text>
+        <view class="nav-placeholder"></view>
       </view>
-      <view class="header-icon-wrap"><image class="header-icon" src="/static/icons/sparkle.png" mode="aspectFit" /></view>
     </view>
 
+    <view class="page-content">
     <view class="chat-card">
       <view class="chat-item assistant">
         <view class="avatar">AI</view>
@@ -40,9 +42,11 @@
       </view>
     </view>
 
+    </view>
+
     <view class="chat-input-row">
       <input class="chat-input" v-model="inputText" placeholder="输入你想问的问题" />
-      <button class="send-btn" :disabled="loading" @click="ask(inputText)">{{ loading ? '...' : '发送' }}</button>
+      <view class="send-btn" :class="{ disabled: loading }" @click="ask(inputText)">{{ loading ? '...' : '发送' }}</view>
     </view>
   </view>
 </template>
@@ -63,6 +67,7 @@ export default {
     }
   },
   methods: {
+    goBack() { uni.navigateBack() },
     async ask(text) {
       if (!text) return
       this.currentQuestion = text
@@ -89,18 +94,25 @@ export default {
 </script>
 
 <style scoped>
-.page-container { min-height: 100vh; padding: 28rpx 28rpx 150rpx; background: linear-gradient(180deg, #EEF2FF 0%, #F8FAFC 34%, #F8FAFC 100%); box-sizing: border-box; }
-.header-card { display: flex; justify-content: space-between; align-items: center; gap: 20rpx; padding: 36rpx; border-radius: 18rpx; color: #fff; background: linear-gradient(135deg, #2563EB, #0F766E); box-shadow: 0 16rpx 36rpx rgba(37,99,235,.18); }
-.page-title { display: block; font-size: 40rpx; font-weight: 900; }.page-desc { display: block; margin-top: 10rpx; font-size: 24rpx; line-height: 1.5; opacity: .9; }.header-icon-wrap { width: 86rpx; height: 86rpx; border-radius: 16rpx; background: rgba(255,255,255,.18); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }.header-icon { width: 48rpx; height: 48rpx; }
-.chat-card { margin-top: 24rpx; padding: 30rpx; border-radius: 16rpx; background: #fff; box-shadow: 0 8rpx 22rpx rgba(15,23,42,.05); }
-.chat-item { display: flex; gap: 16rpx; margin-bottom: 24rpx; }.chat-item.user { justify-content: flex-end; }.avatar { width: 64rpx; height: 64rpx; border-radius: 50%; background: #D1FAE5; color: #059669; display: flex; align-items: center; justify-content: center; font-size: 22rpx; font-weight: 900; flex-shrink: 0; }.user-avatar { background: #DBEAFE; color: #2563EB; }
-.bubble { max-width: 520rpx; padding: 20rpx 24rpx; border-radius: 16rpx; background: #F1F5F9; color: #1E293B; font-size: 27rpx; line-height: 1.55; }.user-bubble { background: #D1FAE5; }
+.page-container { min-height: 100vh; background: #F4F7F5; }
+.custom-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 999; background: rgba(244, 247, 245, 0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1rpx solid #DDE7E1; }
+.status-bar { height: var(--status-bar-height); }
+.nav-content { height: 100rpx; padding: 0 32rpx; display: flex; align-items: center; justify-content: space-between; }
+.nav-back { width: 60rpx; height: 60rpx; display: flex; align-items: center; justify-content: center; }
+.nav-back-icon { font-size: 56rpx; color: #17231F; font-weight: 300; line-height: 1; }
+.nav-placeholder { width: 60rpx; }
+.nav-title { position: absolute; left: 50%; transform: translateX(-50%); font-size: 36rpx; font-weight: 700; color: #17231F; }
+.page-content { padding: 32rpx; padding-top: calc(var(--status-bar-height) + 100rpx + 32rpx); padding-bottom: 150rpx; }
+
+.chat-card { padding: 32rpx; border-radius: 22rpx; background: #FFFFFF; border: 1rpx solid #DDE7E1; box-shadow: 0 10rpx 24rpx rgba(31, 72, 55, 0.05); }
+.chat-item { display: flex; gap: 16rpx; margin-bottom: 24rpx; }.chat-item.user { justify-content: flex-end; }.avatar { width: 64rpx; height: 64rpx; border-radius: 50%; background: #E1F3ED; color: #0E9F8E; display: flex; align-items: center; justify-content: center; font-size: 22rpx; font-weight: 700; flex-shrink: 0; }.user-avatar { background: #EEF2F0; color: #50605A; }
+.bubble { max-width: 520rpx; padding: 20rpx 24rpx; border-radius: 16rpx; background: #F0F4F1; color: #17231F; font-size: 27rpx; line-height: 1.55; }.user-bubble { background: #E1F3ED; }
 .bubble-text { display: block; }
 .source-list { margin-top: 16rpx; display: grid; gap: 12rpx; }
-.source-item { padding: 14rpx 16rpx; border-radius: 14rpx; background: #FFFFFF; border: 1rpx solid #E2E8F0; }
-.source-title { display: block; font-size: 23rpx; font-weight: 800; color: #0F766E; }
-.source-excerpt { display: block; margin-top: 6rpx; font-size: 21rpx; line-height: 1.45; color: #475569; }
-.safety-note { display: block; margin-top: 12rpx; font-size: 21rpx; line-height: 1.4; color: #64748B; }
-.question-chips { display: flex; flex-wrap: wrap; gap: 14rpx; margin: 18rpx 0 28rpx; }.chip { padding: 12rpx 18rpx; border-radius: 999rpx; background: #ECFDF5; color: #059669; font-size: 24rpx; }
-.chat-input-row { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 14rpx; padding: 18rpx 28rpx calc(18rpx + env(safe-area-inset-bottom)); background: rgba(255,255,255,.96); border-top: 1rpx solid #E2E8F0; }.chat-input { flex: 1; height: 76rpx; padding: 0 22rpx; border-radius: 14rpx; background: #F1F5F9; font-size: 27rpx; }.send-btn { width: 120rpx; height: 76rpx; line-height: 76rpx; border-radius: 14rpx; background: #0F766E; color: #fff; font-size: 26rpx; border: none; }.send-btn[disabled] { opacity: 0.65; }
+.source-item { padding: 16rpx 18rpx; border-radius: 14rpx; background: #F4F7F5; border: 1rpx solid #DDE7E1; }
+.source-title { display: block; font-size: 23rpx; font-weight: 700; color: #0E9F8E; }
+.source-excerpt { display: block; margin-top: 8rpx; font-size: 21rpx; line-height: 1.45; color: #71817A; }
+.safety-note { display: block; margin-top: 12rpx; font-size: 21rpx; line-height: 1.4; color: #9AA8A1; }
+.question-chips { display: flex; flex-wrap: wrap; gap: 14rpx; margin: 18rpx 0 28rpx; }.chip { padding: 12rpx 20rpx; border-radius: 999rpx; background: #E1F3ED; color: #0E9F8E; font-size: 24rpx; border: 1rpx solid #BFE3D6; }
+.chat-input-row { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 14rpx; padding: 18rpx 28rpx calc(18rpx + env(safe-area-inset-bottom)); background: rgba(244, 247, 245, 0.96); border-top: 1rpx solid #DDE7E1; }.chat-input { flex: 1; height: 76rpx; padding: 0 22rpx; border-radius: 14rpx; background: #FFFFFF; border: 1rpx solid #DDE7E1; color: #17231F; font-size: 27rpx; }.send-btn { width: 120rpx; height: 76rpx; display: flex; align-items: center; justify-content: center; border-radius: 14rpx; background: #0E9F8E; color: #FFFFFF; font-size: 26rpx; font-weight: 700; }.send-btn.disabled { opacity: 0.5; }
 </style>

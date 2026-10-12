@@ -2,23 +2,35 @@
   "pages": [
     {
       "path": "pages/index/index",
-      "style": { "navigationBarTitleText": "首页" }
+      "style": { 
+        "navigationStyle": "custom",
+        "navigationBarTextStyle": "white"
+      }
     },
     {
       "path": "pages/medication/medication",
-      "style": { "navigationBarTitleText": "智慧药箱" }
+      "style": { 
+        "navigationStyle": "custom",
+        "navigationBarTextStyle": "white"
+      }
     },
     {
       "path": "pages/health_records/health_records",
-      "style": { "navigationBarTitleText": "健康档案" }
+      "style": { 
+        "navigationStyle": "custom",
+        "navigationBarTextStyle": "white"
+      }
     },
     {
       "path": "pages/mine/mine",
-      "style": { "navigationBarTitleText": "我的" }
+      "style": { 
+        "navigationStyle": "custom",
+        "navigationBarTextStyle": "white"
+      }
     },
     {
       "path": "pages/scan_upload/scan_upload",
-      "style": { "navigationBarTitleText": "扫码拍照上传" }
+      "style": { "navigationStyle": "custom", "navigationBarTextStyle": "white" }
     }
   ],
   "subPackages": [
@@ -27,19 +39,23 @@
       "pages": [
         {
           "path": "healthInfo/healthInfo",
-          "style": { "navigationBarTitleText": "个人健康信息" }
+          "style": { "navigationStyle": "custom", "navigationBarTextStyle": "white" }
         },
         {
           "path": "ocr_scan/ocr_scan",
-          "style": { "navigationBarTitleText": "OCR报告识别" }
+          "style": { "navigationStyle": "custom", "navigationBarTextStyle": "white" }
+        },
+        {
+          "path": "ocr_scan/medicine_ocr",
+          "style": { "navigationStyle": "custom", "navigationBarTextStyle": "white" }
         },
         {
           "path": "medicine_form/medicine_form",
-          "style": { "navigationBarTitleText": "药品录入" }
+          "style": { "navigationStyle": "custom", "navigationBarTextStyle": "white" }
         },
         {
           "path": "ai_chat/ai_chat",
-          "style": { "navigationBarTitleText": "AI健康问答" }
+          "style": { "navigationStyle": "custom", "navigationBarTextStyle": "white" }
         }
       ]
     }
@@ -63,8 +79,8 @@
     }
   },
   "tabBar": {
-    "color": "#94A3B8",
-    "selectedColor": "#10B981",
+    "color": "#71817A",
+    "selectedColor": "#0E9F8E",
     "backgroundColor": "#FFFFFF",
     "borderStyle": "white",
     "list": [

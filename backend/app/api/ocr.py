@@ -32,4 +32,7 @@ def get_ocr_job(job_id: str):
 
 @router.post("/confirm", response_model=OcrConfirmResponse)
 def confirm_ocr(payload: OcrConfirmRequest):
-    return confirm_ocr_result(payload)
+    try:
+        return confirm_ocr_result(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

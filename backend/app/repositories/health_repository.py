@@ -1,10 +1,11 @@
 from datetime import datetime
+from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import HealthProfileORM, MedicalRecordORM, MedicineORM
-from app.schemas.models import HealthProfile, MedicalRecord, Medicine
+from app.db.models import HealthProfileORM, MedicalRecordItemORM, MedicalRecordORM, MedicineORM
+from app.schemas.models import HealthProfile, MedicalRecord, MedicalRecordItem, Medicine
 
 
 def _profile_to_schema(row: HealthProfileORM) -> HealthProfile:
@@ -32,13 +33,26 @@ def _medicine_to_schema(row: MedicineORM) -> Medicine:
     )
 
 
-def _record_to_schema(row: MedicalRecordORM) -> MedicalRecord:
+def _record_item_to_schema(row: MedicalRecordItemORM) -> MedicalRecordItem:
+    return MedicalRecordItem(
+        id=row.id,
+        position=row.position,
+        label=row.label,
+        value=row.value,
+        unit=row.unit,
+        reference=row.reference,
+        status=row.status,
+    )
+
+
+def _record_to_schema(row: MedicalRecordORM, items: list[MedicalRecordItemORM] | None = None) -> MedicalRecord:
     return MedicalRecord(
         id=row.id,
         title=row.title,
         date=row.date,
         status=row.status,
         content=row.content,
+        items=[_record_item_to_schema(item) for item in items or []],
     )
 
 
@@ -134,8 +148,28 @@ class HealthRepository:
         rows = self.session.scalars(
             select(MedicalRecordORM).order_by(MedicalRecordORM.date.desc(), MedicalRecordORM.id.desc())
         ).all()
+        item_rows = self.session.scalars(
+            select(MedicalRecordItemORM).order_by(
+                MedicalRecordItemORM.record_id.asc(),
+                MedicalRecordItemORM.position.asc(),
+                MedicalRecordItemORM.id.asc(),
+            )
+        ).all()
+        items_by_record: dict[str, list[MedicalRecordItemORM]] = {}
+        for item in item_rows:
+            items_by_record.setdefault(item.record_id, []).append(item)
         return [
-            {"id": row.id, "title": row.title, "date": row.date, "status": row.status, "content": row.content}
+            {
+                "id": row.id,
+                "title": row.title,
+                "date": row.date,
+                "status": row.status,
+                "content": row.content,
+                "items": [
+                    _record_item_to_schema(item).model_dump()
+                    for item in items_by_record.get(row.id, [])
+                ],
+            }
             for row in rows
         ]
 
@@ -151,8 +185,24 @@ class HealthRepository:
             content=record.content,
         )
         self.session.add(row)
+        self.session.flush()
+        for position, item in enumerate(record.items):
+            self.session.add(
+                MedicalRecordItemORM(
+                    id=item.id or f"record_item_{uuid4().hex}",
+                    record_id=record.id,
+                    position=position,
+                    label=item.label,
+                    value=item.value,
+                    unit=item.unit,
+                    reference=item.reference,
+                    status=item.status,
+                )
+            )
         self.session.commit()
-        return _record_to_schema(row)
+        return _record_to_schema(row, list(self.session.scalars(
+            select(MedicalRecordItemORM).where(MedicalRecordItemORM.record_id == record.id)
+        ).all()))
 
     def list_medicines(self) -> list[Medicine]:
         rows = self.session.scalars(select(MedicineORM).order_by(MedicineORM.id.desc())).all()

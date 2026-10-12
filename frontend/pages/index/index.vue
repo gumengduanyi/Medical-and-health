@@ -1,34 +1,34 @@
 <template>
   <view class="page-container">
-    <view class="hero-panel">
-      <view class="hero-main">
-        <text class="date-text">2026年6月4日 · 智能健康管家</text>
-        <text class="hero-title">早安，王先生</text>
-        <text class="hero-desc">优先确认报告、药品库存和过敏史，AI 建议会更接近你的真实情况。</text>
-        <view class="hero-actions">
-          <button class="hero-btn primary" @click="goAdd">识别报告</button>
-          <button class="hero-btn" @click="goChat">AI 解读</button>
-        </view>
+    <view class="custom-nav">
+      <view class="status-bar"></view>
+      <view class="nav-content">
+        <text class="nav-title">健康助手</text>
       </view>
-      <view class="score-card">
-        <text class="score-value">82</text>
-        <text class="score-label">健康评分</text>
-        <view class="score-line"><view class="score-fill"></view></view>
+    </view>
+    
+    <view class="page-content">
+    <view class="greet-row">
+      <view>
+        <text class="greet-date">2026年6月4日 · 智能健康管家</text>
+        <text class="greet-title">早安，王先生</text>
+      </view>
+      <view class="greet-score">
+        <text class="greet-score-value">82</text>
+        <text class="greet-score-label">健康评分</text>
       </view>
     </view>
 
-    <view class="summary-strip">
-      <view class="summary-item">
-        <text class="summary-value">{{ profilePercent }}%</text>
-        <text class="summary-label">资料完整度</text>
+    <view class="trend-card">
+      <view class="section-head compact">
+        <text class="section-title">近 7 天血压趋势</text>
+        <text class="section-link" @click="goRecord">查看详情</text>
       </view>
-      <view class="summary-item">
-        <text class="summary-value">2</text>
-        <text class="summary-label">待确认资料</text>
-      </view>
-      <view class="summary-item warning">
-        <text class="summary-value">3</text>
-        <text class="summary-label">风险提醒</text>
+      <view class="trend-chart">
+        <view class="trend-bar" v-for="item in pressureTrend" :key="item.day">
+          <view class="trend-track"><view class="trend-fill" :style="{ height: item.value + '%' }"></view></view>
+          <text class="trend-label">{{ item.day }}</text>
+        </view>
       </view>
     </view>
 
@@ -76,6 +76,7 @@
     </view>
 
     <FloatingAction />
+    </view>
   </view>
 </template>
 
@@ -87,7 +88,10 @@ export default {
   components: { FloatingAction },
   data() {
     return {
-      profilePercent: 72,
+      pressureTrend: [
+        { day: '一', value: 62 }, { day: '二', value: 68 }, { day: '三', value: 74 },
+        { day: '四', value: 71 }, { day: '五', value: 82 }, { day: '六', value: 78 }, { day: '日', value: 86 }
+      ],
       quickActions: [
         { icon: '/static/icons/report.png', title: 'OCR 识别', desc: '体检/诊断/药盒', theme: 'mint', action: 'ocr' },
         { icon: '/static/icons/record.png', title: '健康趋势', desc: '指标变化与异常', theme: 'blue', action: 'record' },
@@ -138,57 +142,60 @@ export default {
 </script>
 
 <style scoped>
-.page-container { min-height: 100vh; background: linear-gradient(180deg, #EEFBF7 0%, #F8FAFC 34%, #F8FAFC 100%); padding: 28rpx 28rpx 170rpx; box-sizing: border-box; }
-.hero-panel { display: flex; justify-content: space-between; align-items: stretch; gap: 20rpx; padding: 34rpx; border-radius: 18rpx; color: #fff; background: linear-gradient(135deg, #0F766E 0%, #10B981 52%, #2563EB 100%); box-shadow: 0 16rpx 36rpx rgba(13, 148, 136, 0.22); }
-.hero-main { flex: 1; min-width: 0; }
-.date-text { display: block; font-size: 23rpx; opacity: .84; }
-.hero-title { display: block; margin-top: 12rpx; font-size: 44rpx; line-height: 1.12; font-weight: 900; }
-.hero-desc { display: block; max-width: 470rpx; margin-top: 14rpx; font-size: 25rpx; line-height: 1.55; opacity: .9; }
-.hero-actions { display: flex; gap: 14rpx; margin-top: 26rpx; }
-.hero-btn { margin: 0; min-width: 140rpx; height: 66rpx; line-height: 66rpx; border-radius: 14rpx; background: rgba(255,255,255,.18); color: #fff; font-size: 25rpx; border: 1rpx solid rgba(255,255,255,.32); }
-.hero-btn.primary { background: #FFFFFF; color: #0F766E; font-weight: 900; border-color: #FFFFFF; }
-.score-card { width: 150rpx; padding: 20rpx 16rpx; border-radius: 16rpx; background: rgba(255,255,255,.16); display: flex; flex-direction: column; justify-content: center; border: 1rpx solid rgba(255,255,255,.24); flex-shrink: 0; box-sizing: border-box; }
-.score-value { font-size: 50rpx; line-height: 1; font-weight: 900; }
-.score-label { margin-top: 8rpx; font-size: 20rpx; opacity: .88; }
-.score-line { height: 8rpx; margin-top: 16rpx; border-radius: 999rpx; background: rgba(255,255,255,.22); overflow: hidden; }
-.score-fill { width: 82%; height: 100%; border-radius: 999rpx; background: #FFFFFF; }
-.summary-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14rpx; margin-top: 18rpx; }
-.summary-item { padding: 20rpx 12rpx; border-radius: 16rpx; background: #FFFFFF; text-align: center; box-shadow: 0 8rpx 22rpx rgba(15, 23, 42, .05); }
-.summary-value { display: block; font-size: 34rpx; line-height: 1; color: #0F766E; font-weight: 900; }
-.summary-item.warning .summary-value { color: #D97706; }
-.summary-label { display: block; margin-top: 10rpx; font-size: 21rpx; color: #64748B; }
-.section-head { display: flex; justify-content: space-between; align-items: center; margin-top: 30rpx; }
+.page-container { min-height: 100vh; background: #F4F7F5; }
+.custom-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 999; background: rgba(244, 247, 245, 0.94); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1rpx solid #DDE7E1; }
+.status-bar { height: var(--status-bar-height); }
+.nav-content { height: 100rpx; padding: 0 32rpx; display: flex; align-items: center; justify-content: center; position: relative; }
+.nav-title { position: absolute; left: 50%; transform: translateX(-50%); font-size: 36rpx; font-weight: 700; color: #17231F; }
+.nav-actions { display: flex; gap: 20rpx; align-items: center; }
+.nav-icon { width: 68rpx; height: 68rpx; border-radius: 50%; background: rgba(56, 189, 248, 0.12); display: flex; align-items: center; justify-content: center; font-size: 32rpx; border: 1rpx solid rgba(56, 189, 248, 0.2); }
+.page-content { padding: 32rpx; padding-top: calc(var(--status-bar-height) + 100rpx + 24rpx); padding-bottom: 170rpx; }
+.greet-row { display: flex; justify-content: space-between; align-items: center; }
+.greet-date { display: block; font-size: 24rpx; color: #71817A; }
+.greet-title { display: block; margin-top: 10rpx; font-size: 40rpx; font-weight: 700; color: #17231F; }
+.greet-score { flex-shrink: 0; width: 128rpx; height: 128rpx; border-radius: 50%; background: #E1F3ED; border: 8rpx solid #0E9F8E; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.greet-score-value { font-size: 44rpx; font-weight: 700; color: #0E9F8E; line-height: 1; }
+.greet-score-label { margin-top: 6rpx; font-size: 20rpx; color: #50605A; }
+.trend-card { margin-top: 32rpx; padding: 32rpx; border-radius: 24rpx; background: #FFFFFF; border: 1rpx solid #DDE7E1; box-shadow: 0 12rpx 28rpx rgba(31, 72, 55, 0.06); }
+.trend-chart { display: flex; justify-content: space-between; align-items: flex-end; height: 200rpx; margin-top: 24rpx; }
+.trend-bar { display: flex; flex-direction: column; align-items: center; gap: 12rpx; }
+.trend-track { width: 28rpx; height: 160rpx; border-radius: 999rpx; background: #E8F1ED; display: flex; align-items: flex-end; overflow: hidden; }
+.trend-fill { width: 100%; border-radius: 999rpx; background: #0E9F8E; }
+.trend-label { font-size: 22rpx; color: #71817A; }
+.section-head { display: flex; justify-content: space-between; align-items: center; margin-top: 48rpx; }
+.section-head.top-head { margin-top: 0; }
 .section-head.compact { margin-top: 0; }
-.section-title { display: block; font-size: 31rpx; font-weight: 900; color: #1E293B; }
-.section-link { font-size: 24rpx; color: #0F766E; font-weight: 800; }
-.section-badge { padding: 6rpx 14rpx; border-radius: 999rpx; background: #D1FAE5; color: #059669; font-size: 22rpx; }
-.quick-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18rpx; margin-top: 18rpx; }
-.quick-card { min-height: 154rpx; padding: 22rpx; border-radius: 16rpx; background: #fff; box-shadow: 0 8rpx 22rpx rgba(15, 23, 42, .05); box-sizing: border-box; border: 1rpx solid #EEF2F7; }
-.quick-card.mint { background: #F0FDF4; border-color: #BBF7D0; }
-.quick-card.blue { background: #EFF6FF; border-color: #BFDBFE; }
-.quick-card.amber { background: #FFFBEB; border-color: #FDE68A; }
-.quick-icon-wrap { width: 54rpx; height: 54rpx; border-radius: 14rpx; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.76); }
+.section-title { display: block; font-size: 32rpx; font-weight: 700; color: #17231F; }
+.section-link { font-size: 26rpx; color: #0E9F8E; font-weight: 600; }
+.section-badge { padding: 8rpx 16rpx; border-radius: 999rpx; background: #E1F3ED; color: #0E9F8E; font-size: 22rpx; border: 1rpx solid #BFE3D6; }
+.quick-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20rpx; margin-top: 24rpx; }
+.quick-card { min-height: 160rpx; padding: 28rpx; border-radius: 20rpx; background: #FFFFFF; box-sizing: border-box; border: 1rpx solid #DDE7E1; box-shadow: 0 10rpx 24rpx rgba(31, 72, 55, 0.05); }
+.quick-card.mint { background: #F0FAF6; border-color: #CBE9DD; }
+.quick-card.blue { background: #F0F7FA; border-color: #C9E3E8; }
+.quick-card.amber { background: #FFF7ED; border-color: #F3D8B7; }
+.quick-icon-wrap { width: 56rpx; height: 56rpx; border-radius: 16rpx; display: flex; align-items: center; justify-content: center; background: #E1F3ED; }
 .quick-icon { width: 32rpx; height: 32rpx; }
-.quick-title { display: block; margin-top: 12rpx; font-size: 28rpx; line-height: 1.2; font-weight: 900; color: #1E293B; }
-.quick-desc { display: block; margin-top: 8rpx; font-size: 22rpx; line-height: 1.35; color: #64748B; }
-.priority-card, .risk-panel { margin-top: 24rpx; padding: 28rpx; border-radius: 16rpx; background: #fff; box-shadow: 0 8rpx 22rpx rgba(15, 23, 42, .05); }
-.todo-item { display: flex; align-items: center; gap: 18rpx; padding: 24rpx 0; border-bottom: 1rpx solid #F1F5F9; }
+.quick-title { display: block; margin-top: 16rpx; font-size: 28rpx; line-height: 1.2; font-weight: 700; color: #17231F; }
+.quick-desc { display: block; margin-top: 12rpx; font-size: 24rpx; line-height: 1.4; color: #71817A; }
+.priority-card { margin-top: 32rpx; padding: 32rpx; border-radius: 24rpx; background: #FFFFFF; border: 1rpx solid #DDE7E1; box-shadow: 0 12rpx 28rpx rgba(31, 72, 55, 0.06); }
+.todo-item { display: flex; align-items: center; gap: 20rpx; padding: 28rpx 0; border-bottom: 1rpx solid #E8F1ED; }
 .todo-item:last-child { border-bottom: none; padding-bottom: 0; }
-.todo-index { width: 52rpx; height: 52rpx; border-radius: 14rpx; display: flex; align-items: center; justify-content: center; color: #1E293B; font-size: 25rpx; font-weight: 900; flex-shrink: 0; }
-.todo-index.blue { background: #DBEAFE; color: #1D4ED8; }
-.todo-index.green { background: #D1FAE5; color: #047857; }
-.todo-index.amber { background: #FEF3C7; color: #B45309; }
+.todo-index { width: 56rpx; height: 56rpx; border-radius: 12rpx; display: flex; align-items: center; justify-content: center; color: #17231F; font-size: 26rpx; font-weight: 700; flex-shrink: 0; }
+.todo-index.blue { background: #E8F3F6; color: #187A83; }
+.todo-index.green { background: #E1F3ED; color: #0E9F8E; }
+.todo-index.amber { background: rgba(249, 115, 22, 0.15); color: #F97316; }
 .todo-info { flex: 1; min-width: 0; }
-.todo-title { display: block; font-size: 27rpx; color: #1E293B; font-weight: 900; line-height: 1.35; }
-.todo-desc { display: block; margin-top: 8rpx; font-size: 23rpx; color: #64748B; line-height: 1.45; }
-.arrow-icon { width: 24rpx; height: 24rpx; flex-shrink: 0; }
-.risk-panel { background: linear-gradient(180deg, #FFFFFF, #FFF7ED); border: 1rpx solid #FED7AA; }
-.risk-head { display: flex; gap: 18rpx; align-items: flex-start; }
-.risk-icon { width: 44rpx; height: 44rpx; flex-shrink: 0; }
+.todo-title { display: block; font-size: 28rpx; color: #17231F; font-weight: 600; line-height: 1.4; }
+.todo-desc { display: block; margin-top: 10rpx; font-size: 24rpx; color: #71817A; line-height: 1.5; }
+.arrow-icon { width: 24rpx; height: 24rpx; flex-shrink: 0; opacity: 0.5; }
+
+.risk-panel { margin-top: 32rpx; padding: 32rpx; border-radius: 24rpx; background: #FFF7ED; border: 1rpx solid #F3D8B7; }
+.risk-head { display: flex; gap: 20rpx; align-items: flex-start; }
+.risk-icon { width: 48rpx; height: 48rpx; flex-shrink: 0; }
 .risk-copy { flex: 1; min-width: 0; }
-.risk-title { display: block; font-size: 30rpx; color: #9A3412; font-weight: 900; }
-.risk-text { display: block; margin-top: 12rpx; font-size: 26rpx; line-height: 1.6; color: #9A3412; }
-.risk-actions { display: flex; gap: 16rpx; margin-top: 24rpx; }
-.mini-btn { flex: 1; height: 70rpx; line-height: 70rpx; border-radius: 14rpx; background: #FFFFFF; color: #334155; font-size: 26rpx; border: none; }
-.mini-btn.primary { background: #0F766E; color: #fff; font-weight: 800; }
+.risk-title { display: block; font-size: 30rpx; color: #B96B25; font-weight: 700; }
+.risk-text { display: block; margin-top: 14rpx; font-size: 26rpx; line-height: 1.6; color: #70543B; }
+.risk-actions { display: flex; gap: 16rpx; margin-top: 28rpx; }
+.mini-btn { flex: 1; height: 72rpx; line-height: 72rpx; border-radius: 14rpx; background: #FFFFFF; color: #70543B; font-size: 26rpx; border: 1rpx solid #EBC99F; }
+.mini-btn.primary { background: #E58A3A; color: #FFFFFF; font-weight: 700; border-color: #E58A3A; }
 </style>

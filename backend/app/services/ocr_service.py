@@ -16,7 +16,7 @@ from typing import Any
 from fastapi import UploadFile
 
 from app.core.config import settings
-from app.schemas.models import MedicalRecord, Medicine, OcrConfirmRequest, OcrConfirmResponse
+from app.schemas.models import MedicalRecord, MedicalRecordItem, Medicine, OcrConfirmRequest, OcrConfirmResponse
 from app.services import data_store
 from app.services.upload_service import detect_image_type
 
@@ -95,6 +95,16 @@ def _run_ppstructure(image_path: Path) -> dict[str, Any]:
         if image is None:
             raise ValueError(f'图片读取失败: {image_path}')
 
+        # OCR 对小字和低对比度照片更敏感，先做轻量放大和局部对比度增强。
+        height, width = image.shape[:2]
+        if max(height, width) < 2400:
+            scale = min(2.0, 2400 / max(height, width))
+            image = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+        lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+        lightness, a_channel, b_channel = cv2.split(lab)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        image = cv2.cvtColor(cv2.merge((clahe.apply(lightness), a_channel, b_channel)), cv2.COLOR_LAB2BGR)
+
         engine = PPStructureV3(
             use_table_recognition=True,
             use_doc_orientation_classify=True,
@@ -130,10 +140,15 @@ def _run_ppstructure(image_path: Path) -> dict[str, Any]:
             capture_output=True,
             text=True,
             timeout=settings.ocr_timeout_seconds,
-            check=True,
+            check=False,
         )
     finally:
         script_path.unlink(missing_ok=True)
+
+    if completed.returncode != 0:
+        error_output = (completed.stderr or completed.stdout or "").strip()
+        detail = error_output[-2000:] if error_output else "无错误输出"
+        raise RuntimeError(f"OCR 引擎执行失败（退出码 {completed.returncode}）：{detail}")
 
     stdout = completed.stdout.strip().splitlines()
     if not stdout:
@@ -143,7 +158,45 @@ def _run_ppstructure(image_path: Path) -> dict[str, Any]:
 
 def _extract_texts(page: dict[str, Any]) -> list[str]:
     texts = page.get("overall_ocr_res", {}).get("rec_texts", [])
-    return [str(text).strip() for text in texts if str(text).strip()]
+    cleaned: list[str] = []
+    for text in texts:
+        value = re.sub(r"\s+", " ", str(text)).strip()
+        if value and value not in cleaned:
+            cleaned.append(value)
+    return cleaned
+
+
+def _normalise_generated_html(output_dir: str) -> None:
+    header = """
+<thead><tr>
+<th>指标名称</th><th>检测值</th><th>异常标记</th><th>参考范围</th><th>单位</th>
+</tr></thead>""".strip()
+    style = """
+<meta charset="utf-8"><style>
+body { margin: 24px; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; color: #17231F; }
+table { border-collapse: collapse; min-width: 860px; width: 100%; }
+th, td { border: 1px solid #DDE7E1; padding: 10px 12px; text-align: left; }
+th { background: #E1F3ED; color: #0E7F72; font-weight: 600; }
+tr:nth-child(even) td { background: #F7FBF9; }
+</style>""".strip()
+    for html_path in Path(output_dir).rglob("*.html"):
+        content = html_path.read_text(encoding="utf-8")
+        if "<thead>" not in content and "<table>" in content:
+            content = content.replace("<table>", f"<table>{header}", 1)
+        if "<meta charset=" not in content and "<html><body>" in content:
+            content = content.replace("<html><body>", f"<html><head>{style}</head><body>", 1)
+        html_path.write_text(content, encoding="utf-8")
+
+
+def _extract_ocr_scores(page: dict[str, Any]) -> list[float]:
+    scores = page.get("overall_ocr_res", {}).get("rec_scores", [])
+    values = []
+    for score in scores:
+        try:
+            values.append(float(score))
+        except (TypeError, ValueError):
+            continue
+    return values
 
 
 def _extract_layout_boxes(page: dict[str, Any]) -> list[dict[str, Any]]:
@@ -165,46 +218,125 @@ def _field_status(label: str, value: str, reference: str = "") -> str:
     except ValueError:
         return "normal"
 
-    match = re.search(r"([0-9.]+)\s*[~～-]\s*([0-9.]+)", reference)
+    match = re.search(r"([0-9.,]+)\s*[~～至-]\s*([0-9.,]+)", reference)
     if not match:
         return "warning" if any(key in label for key in ("血压", "血糖", "胆固醇")) else "normal"
-    low, high = float(match.group(1)), float(match.group(2))
+    low, high = float(match.group(1).replace(",", "")), float(match.group(2).replace(",", ""))
     return "warning" if number < low or number > high else "normal"
+
+
+_NUMERIC_VALUE = re.compile(r"^[<≤>]?[0-9]+(?:[.,][0-9]+)?$")
+_REFERENCE_RANGE = re.compile(r"[<≤>]?[0-9.,]+\s*[~～至-]\s*[<≤>]?[0-9.,]+")
+
+
+def _numeric_token(text: str) -> bool:
+    return bool(_NUMERIC_VALUE.fullmatch(text.strip()))
+
+
+def _reference_token(text: str) -> bool:
+    return bool(_REFERENCE_RANGE.search(text.strip()))
+
+
+def _normalise_unit(text: str) -> str:
+    return re.sub(r"\s+", "", text).strip()
+
+
+def _unit_token(text: str) -> bool:
+    value = _normalise_unit(text)
+    return bool(value) and not re.search(r"[\u4e00-\u9fff]", value) and bool(
+        re.fullmatch(r"[A-Za-zμΩ%/·^0-9-]+", value)
+    )
+
+
+def _field_from_inline_text(text: str) -> tuple[str, str, str, str] | None:
+    match = re.search(
+        r"(?P<label>[\u4e00-\u9fff][\u4e00-\u9fff()（）0-9A-Za-z+\- ]{1,40}?)\s*"
+        r"(?P<value>[<≤>]?[0-9]+(?:[.,][0-9]+)?)\s*"
+        r"(?:↑|↓|高|低)?\s*"
+        r"(?P<reference>[0-9.,]+\s*[~～至-]\s*[0-9.,]+)?\s*"
+        r"(?P<unit>[A-Za-zμΩ%/·^0-9-]+)?",
+        text,
+    )
+    if not match:
+        return None
+    return (
+        match.group("label").strip(),
+        match.group("value").strip(),
+        (match.group("reference") or "").strip(),
+        _normalise_unit(match.group("unit") or ""),
+    )
 
 
 def _extract_report_fields(texts: list[str]) -> list[dict[str, Any]]:
     fields: list[dict[str, Any]] = []
     for index, text in enumerate(texts):
+        inline = _field_from_inline_text(text)
+        label = text
         value = ""
         reference = ""
-        if index + 1 < len(texts) and re.fullmatch(r"<?[0-9]+(?:\.[0-9]+)?", texts[index + 1]):
-            value = texts[index + 1]
-        if index + 2 < len(texts) and re.search(r"[0-9.]+\s*[~～-]\s*[0-9.]+", texts[index + 2]):
-            reference = texts[index + 2]
-        if value and re.search(r"[\u4e00-\u9fff]", text):
+        unit = ""
+        if inline:
+            label, value, reference, unit = inline
+        else:
+            for offset in range(1, min(5, len(texts) - index)):
+                candidate = texts[index + offset]
+                if (
+                    re.search(r"[\u4e00-\u9fff]", candidate)
+                    and not _numeric_token(candidate)
+                    and not _reference_token(candidate)
+                ):
+                    break
+                if not value and _numeric_token(candidate):
+                    value = candidate
+                if _reference_token(candidate):
+                    reference = candidate
+                    if index + offset + 1 < len(texts) and _unit_token(texts[index + offset + 1]):
+                        unit = _normalise_unit(texts[index + offset + 1])
+                    break
+        if value and re.search(r"[\u4e00-\u9fff]", label):
             fields.append(
                 {
-                    "label": text,
+                    "label": label,
                     "value": value,
                     "reference": reference,
-                    "status": _field_status(text, value, reference),
+                    "unit": unit,
+                    "status": _field_status(label, value, reference),
                 }
             )
-        if len(fields) >= 20:
+        if len(fields) >= 100:
             break
     return fields
 
 
 def _extract_medicine_fields(texts: list[str]) -> list[dict[str, Any]]:
-    joined = " ".join(texts)
-    fields = []
+    fields: list[dict[str, Any]] = []
+    labelled_keywords = ("药品名称", "通用名称", "商品名称", "用法用量", "用法", "用量", "规格", "有效期", "生产日期", "批准文号")
+
+    def add_field(label: str, value: str) -> None:
+        value = re.sub(r"\s+", " ", value).strip(" ：:：")
+        if value and not any(item["label"] == label for item in fields):
+            fields.append({"label": label, "value": value, "status": "pending"})
+
+    for text in texts:
+        for keyword in labelled_keywords:
+            match = re.search(rf"{re.escape(keyword)}\s*[：:]?\s*(.+)", text)
+            if match:
+                add_field(keyword, match.group(1))
+                break
+
+    name_field = next((item for item in fields if item["label"] in ("药品名称", "通用名称", "商品名称")), None)
+    if name_field is None:
+        ignored = ("用法", "用量", "规格", "有效期", "生产日期", "批准文号", "注意事项", "禁忌")
+        candidate = next(
+            (text for text in texts if len(text) >= 2 and not text.isdigit() and not any(keyword in text for keyword in ignored)),
+            "",
+        )
+        if candidate:
+            add_field("药品名称", candidate[:80])
+
     if texts:
-        fields.append({"label": "识别文本", "value": joined[:120], "status": "pending"})
-    for keyword in ("用法", "用量", "规格", "有效期", "生产日期", "批准文号"):
-        match = next((text for text in texts if keyword in text), "")
-        if match:
-            fields.append({"label": keyword, "value": match, "status": "pending"})
-    return fields[:8]
+        add_field("识别文本", " ".join(texts)[:240])
+    return fields[:10]
 
 
 def _scan_image_path(image_path: Path, original_filename: str = "", source_type: str = "report") -> dict[str, Any]:
@@ -212,11 +344,19 @@ def _scan_image_path(image_path: Path, original_filename: str = "", source_type:
     pages = result["raw"]
     page = pages[0] if pages else {}
     texts = _extract_texts(page)
+    ocr_scores = _extract_ocr_scores(page)
     boxes = _extract_layout_boxes(page)
     table_scores = [box["score"] for box in boxes if box["label"] == "table"]
     fields = _extract_medicine_fields(texts) if source_type == "medicine" else _extract_report_fields(texts)
-    confidence = round(max(table_scores or [0]) * 100)
+    score_groups = [score for score in ocr_scores if score > 0]
+    if score_groups:
+        confidence = round(sum(score_groups) / len(score_groups) * 100)
+    elif table_scores:
+        confidence = round(sum(table_scores) / len(table_scores) * 100)
+    else:
+        confidence = 0
 
+    _normalise_generated_html(result["output_dir"])
     return {
         "id": image_path.stem,
         "sourceType": source_type,
@@ -224,6 +364,7 @@ def _scan_image_path(image_path: Path, original_filename: str = "", source_type:
         "fields": fields,
         "texts": texts,
         "layout": boxes,
+        "ocrScores": [round(score, 3) for score in ocr_scores[:200]],
         "page": {
             "width": page.get("width"),
             "height": page.get("height"),
@@ -310,15 +451,39 @@ def _record_content(payload: OcrConfirmRequest) -> str:
     return "；".join(lines + [source_note])
 
 
+def _record_items(payload: OcrConfirmRequest) -> list[MedicalRecordItem]:
+    items: list[MedicalRecordItem] = []
+    for field in payload.fields:
+        label = str(field.get("label", "")).strip()
+        value = str(field.get("value", "")).strip()
+        if not label or not value or label == "识别文本":
+            continue
+        items.append(
+            MedicalRecordItem(
+                label=label,
+                value=value,
+                unit=str(field.get("unit", "")).strip(),
+                reference=str(field.get("reference", "")).strip(),
+                status=str(field.get("status", "normal")).strip() or "normal",
+            )
+        )
+    return items
+
+
 def confirm_ocr_result(payload: OcrConfirmRequest) -> OcrConfirmResponse:
     source_type = payload.source_type
+    if not payload.fields and not payload.texts:
+        raise ValueError("没有可确认的 OCR 结果")
     if source_type == "medicine":
         joined_text = " ".join(payload.texts)
-        name = _field_value(payload.fields, ("药品名称", "识别文本")) or (payload.texts[0] if payload.texts else "OCR 识别药品")
+        name = _field_value(payload.fields, ("药品名称", "通用名称", "商品名称"))
+        if not name:
+            name = next((field.get("value", "") for field in payload.fields if field.get("label") != "识别文本"), "")
+        name = str(name).strip() or (payload.texts[0] if payload.texts else "OCR 识别药品")
         medicine = data_store.create_medicine(
             Medicine(
                 name=name[:80],
-                dose=_field_value(payload.fields, ("用法", "用量", "规格")),
+                dose=_field_value(payload.fields, ("用法用量", "用法", "用量", "规格")),
                 stock=0,
                 expire=_field_value(payload.fields, ("有效期", "生产日期")),
                 risk=f"OCR 确认入库，原文：{joined_text[:120]}",
@@ -333,6 +498,7 @@ def confirm_ocr_result(payload: OcrConfirmRequest) -> OcrConfirmResponse:
             date=time.strftime("%Y-%m-%d"),
             status="已确认",
             content=_record_content(payload),
+            items=_record_items(payload),
         )
     )
     return OcrConfirmResponse(sourceType=source_type, record=record, message="OCR 报告已确认入库。")

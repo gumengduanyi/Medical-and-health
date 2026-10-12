@@ -7,9 +7,10 @@
 <style>
 	/*每个页面公共css */
 	page {
-		background: #F8FAFC;
-		color: #1E293B;
-		font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+		background: #F4F7F5;
+		color: #17231F;
+		font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
+		--status-bar-height: 44px;
 	}
 
 	button::after {

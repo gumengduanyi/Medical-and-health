@@ -1,82 +1,125 @@
 <template>
   <view class="page-container">
-    <view class="top-summary">
-      <view>
-        <text class="page-title">健康档案</text>
-        <text class="page-desc">OCR 报告结构化后，自动生成指标趋势、风险提醒和复诊线索。</text>
-      </view>
-      <view class="score-pill">
-        <text class="score-text">82</text>
-        <text class="score-label">AI评分</text>
+    <view class="custom-nav">
+      <view class="status-bar"></view>
+      <view class="nav-content">
+        <text class="nav-title">健康档案</text>
       </view>
     </view>
 
-    <view class="tab-switch">
-      <button class="tab-btn" :class="{ active: currentTab === 0 }" @click="switchTab(0)">指标趋势</button>
-      <button class="tab-btn" :class="{ active: currentTab === 1 }" @click="switchTab(1)">报告库</button>
-      <button class="tab-btn" :class="{ active: currentTab === 2 }" @click="switchTab(2)">诊疗记录</button>
-    </view>
-
-    <view class="insight-card">
-      <text class="insight-title">AI 当前判断</text>
-      <text class="insight-text">你的健康数据主要风险集中在血压和血糖趋势。建议优先确认最新体检报告，并连续记录 7 天血压。</text>
-      <view class="insight-actions">
-        <button class="insight-btn primary" @click="goOcrScan">上传报告</button>
-        <button class="insight-btn" @click="goAiChat">AI 解读</button>
+    <view class="page-content">
+      <view class="score-banner">
+        <view class="score-ring">
+          <text class="score-value">82</text>
+          <text class="score-unit">分</text>
+        </view>
+        <view class="score-info">
+          <text class="score-title">AI 健康评分</text>
+          <text class="score-desc">基于近期报告与日常记录综合评估</text>
+        </view>
       </view>
-    </view>
 
-    <view v-if="currentTab === 0">
-      <view class="metric-grid">
-        <view class="metric-card warn"><text class="metric-label">血压</text><text class="metric-value">145/96</text><text class="metric-unit">mmHg · 偏高</text></view>
-        <view class="metric-card"><text class="metric-label">空腹血糖</text><text class="metric-value">6.8</text><text class="metric-unit">mmol/L · 临界</text></view>
-        <view class="metric-card"><text class="metric-label">BMI</text><text class="metric-value">22.9</text><text class="metric-unit">正常范围</text></view>
+      <view class="metric-row">
+        <view class="metric-pill warn">
+          <text class="metric-pill-label">血压</text>
+          <text class="metric-pill-value">145/96</text>
+          <text class="metric-pill-unit">mmHg · 偏高</text>
+        </view>
+        <view class="metric-pill">
+          <text class="metric-pill-label">空腹血糖</text>
+          <text class="metric-pill-value">6.8</text>
+          <text class="metric-pill-unit">mmol/L · 临界</text>
+        </view>
+        <view class="metric-pill">
+          <text class="metric-pill-label">BMI</text>
+          <text class="metric-pill-value">22.9</text>
+          <text class="metric-pill-unit">正常范围</text>
+        </view>
       </view>
-      <view class="chart-card">
-        <view class="section-head"><text class="section-title">近 7 天血压趋势</text><text class="section-tag">OCR+手动记录</text></view>
-        <view class="bar-chart">
-          <view class="bar-item" v-for="item in pressureList" :key="item.day">
-            <view class="bar-track"><view class="bar-fill" :style="{ height: item.value + '%' }"></view></view>
-            <text class="bar-label">{{ item.day }}</text>
+
+      <view class="record-entry" @click="goOcrScan">
+        <view class="record-entry-icon"><image src="/static/icons/report.png" mode="aspectFit" /></view>
+        <view class="record-entry-copy">
+          <text class="record-entry-title">录入健康报告</text>
+          <text class="record-entry-desc">识别体检报告、诊断记录和化验单</text>
+        </view>
+        <image class="record-entry-arrow" src="/static/icons/arrow-right.png" mode="aspectFit" />
+      </view>
+
+      <view class="tab-switch">
+        <view class="tab-btn" :class="{ active: currentTab === 0 }" @click="switchTab(0)">指标趋势</view>
+        <view class="tab-btn" :class="{ active: currentTab === 1 }" @click="switchTab(1)">报告库</view>
+        <view class="tab-btn" :class="{ active: currentTab === 2 }" @click="switchTab(2)">诊疗记录</view>
+      </view>
+
+      <view v-if="currentTab === 0" class="tab-panel">
+        <view class="chart-card">
+          <view class="section-head">
+            <text class="section-title">近 7 天血压趋势</text>
+            <text class="section-tag">OCR+手动记录</text>
+          </view>
+          <view class="bar-chart">
+            <view class="bar-item" v-for="item in pressureList" :key="item.day">
+              <view class="bar-track"><view class="bar-fill" :style="{ height: item.value + '%' }"></view></view>
+              <text class="bar-label">{{ item.day }}</text>
+            </view>
+          </view>
+        </view>
+        <view class="ai-warning">
+          <image class="warning-icon" src="/static/icons/warning.png" mode="aspectFit" />
+          <view class="warning-body">
+            <text class="warning-title">AI 异常指标预警</text>
+            <text class="warning-text">血压连续偏高，建议低盐饮食、规律作息、每日固定时段监测。若伴随头晕胸闷，请及时就医。</text>
           </view>
         </view>
       </view>
-      <view class="ai-warning">
-        <text class="warning-title">AI 异常指标预警</text>
-        <text class="warning-text">血压连续偏高，建议低盐饮食、规律作息、每日固定时段监测。若伴随头晕胸闷，请及时就医。</text>
-      </view>
-    </view>
 
-    <view v-if="currentTab === 1">
-      <view class="report-card" v-for="item in reports" :key="item.title">
-        <view class="report-icon-wrap"><image class="report-icon" src="/static/icons/report.png" mode="aspectFit" /></view>
-        <view class="report-info"><text class="report-title">{{ item.title }}</text><text class="report-desc">{{ item.desc }}</text><text class="report-date">{{ item.date }}</text></view>
-        <text class="report-status">{{ item.status }}</text>
-      </view>
-      <view class="empty-tip" @click="goOcrScan">上传报告后，系统会自动提取指标并关联到趋势图。点击去识别新报告。</view>
-    </view>
-
-    <view v-if="currentTab === 2">
-      <view class="timeline-card" v-for="item in visits" :key="item.date">
-        <view class="timeline-dot"></view>
-        <view class="visit-body">
-          <view class="visit-head"><text class="visit-date">{{ item.date }}</text><text class="visit-hospital">{{ item.hospital }}</text></view>
-          <text class="visit-title">{{ item.title }}</text>
-          <text class="visit-desc">{{ item.desc }}</text>
+      <view v-if="currentTab === 1" class="tab-panel">
+        <view class="report-card" v-for="item in reports" :key="item.title">
+          <view class="report-bar"></view>
+          <view class="report-info">
+            <view class="report-top">
+              <text class="report-title">{{ item.title }}</text>
+              <text class="report-status">{{ item.status }}</text>
+            </view>
+            <text class="report-desc">{{ item.desc }}</text>
+            <text class="report-date">{{ item.date }}</text>
+          </view>
         </view>
       </view>
-    </view>
 
-    <FloatingAction />
+      <view v-if="currentTab === 2" class="tab-panel">
+        <view class="timeline">
+          <view class="timeline-item" v-for="item in visits" :key="item.date">
+            <view class="timeline-track">
+              <view class="timeline-dot"></view>
+              <view class="timeline-line"></view>
+            </view>
+            <view class="visit-body">
+              <text class="visit-date">{{ item.date }}</text>
+              <text class="visit-title">{{ item.title }}</text>
+              <text class="visit-desc">{{ item.desc }}</text>
+              <text class="visit-hospital">{{ item.hospital }}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <FloatingAction />
+    </view>
   </view>
 </template>
 
 <script>
 import FloatingAction from '@/components/FloatingAction/FloatingAction.vue'
 import { smoothNavigateTo } from '@/utils/router.js'
+import { getHealthRecords } from '@/services/modules/health.service.js'
 
 export default {
   components: { FloatingAction },
+  onShow() {
+    this.loadReports()
+  },
   data() {
     return {
       currentTab: 0,
@@ -95,6 +138,22 @@ export default {
     }
   },
   methods: {
+    async loadReports() {
+      try {
+        const records = await getHealthRecords()
+        if (!Array.isArray(records)) return
+        this.reports = records.map((item) => ({
+          title: item.title || '健康报告',
+          desc: Array.isArray(item.items) && item.items.length
+            ? `已识别 ${item.items.length} 项指标${item.items.filter((field) => field.status === 'warning').length ? `，${item.items.filter((field) => field.status === 'warning').length} 项需关注` : ''}`
+            : (item.content ? String(item.content).slice(0, 72) : '已保存的健康记录'),
+          date: item.date || '未标注日期',
+          status: item.status || '已入库'
+        }))
+      } catch (error) {
+        uni.showToast({ title: error?.message || '报告加载失败', icon: 'none' })
+      }
+    },
     switchTab(index) { this.currentTab = index },
     goOcrScan() { smoothNavigateTo('/pages-sub/ocr_scan/ocr_scan') },
     goAiChat() { smoothNavigateTo('/pages-sub/ai_chat/ai_chat') }
@@ -103,19 +162,76 @@ export default {
 </script>
 
 <style scoped>
-.page-container { min-height: 100vh; background: linear-gradient(180deg, #EEFBF7 0%, #F8FAFC 34%, #F8FAFC 100%); padding: 28rpx 28rpx 170rpx; box-sizing: border-box; }
-.top-summary { display: flex; justify-content: space-between; align-items: center; padding: 34rpx; border-radius: 18rpx; background: linear-gradient(135deg, #0F766E, #10B981); color: #fff; box-shadow: 0 16rpx 36rpx rgba(13,148,136,.18); }
-.page-title { display: block; font-size: 40rpx; font-weight: 900; }.page-desc { display: block; max-width: 480rpx; margin-top: 10rpx; font-size: 24rpx; line-height: 1.45; opacity: .88; }
-.score-pill { width: 108rpx; height: 108rpx; border-radius: 16rpx; background: rgba(255,255,255,.18); display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; }.score-text { font-size: 38rpx; font-weight: 900; }.score-label { font-size: 20rpx; opacity: .85; }
-.tab-switch { display: flex; gap: 12rpx; margin: 24rpx 0; padding: 8rpx; border-radius: 16rpx; background: #E2E8F0; }.tab-btn { flex: 1; height: 66rpx; line-height: 66rpx; border-radius: 12rpx; background: transparent; color: #64748B; font-size: 25rpx; border: none; }.tab-btn.active { background: #FFFFFF; color: #0F766E; font-weight: 900; box-shadow: 0 6rpx 16rpx rgba(15,23,42,.06); }
-.insight-card { margin-bottom: 24rpx; padding: 26rpx; border-radius: 16rpx; background: linear-gradient(135deg, #EFF6FF, #ECFDF5); border: 1rpx solid #BFDBFE; }
-.insight-title { display: block; font-size: 29rpx; color: #0F766E; font-weight: 900; }.insight-text { display: block; margin-top: 10rpx; font-size: 25rpx; color: #334155; line-height: 1.55; }
-.insight-actions { display: flex; gap: 16rpx; margin-top: 22rpx; }.insight-btn { flex: 1; height: 68rpx; line-height: 68rpx; border-radius: 14rpx; border: none; background: #fff; color: #334155; font-size: 25rpx; font-weight: 800; }.insight-btn.primary { background: #0F766E; color: #fff; }
-.metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16rpx; }.metric-card { padding: 24rpx 16rpx; border-radius: 16rpx; background: #fff; box-shadow: 0 8rpx 22rpx rgba(15,23,42,.05); border: 1rpx solid #EEF2F7; }.metric-card.warn { background: #FFF7ED; border-color: #FED7AA; }.metric-label { display: block; font-size: 22rpx; color: #64748B; }.metric-value { display: block; margin-top: 12rpx; font-size: 34rpx; font-weight: 900; color: #1E293B; }.metric-unit { display: block; margin-top: 8rpx; font-size: 20rpx; color: #94A3B8; }
-.chart-card, .ai-warning, .report-card, .timeline-card { margin-top: 24rpx; padding: 30rpx; border-radius: 16rpx; background: #fff; box-shadow: 0 8rpx 22rpx rgba(15,23,42,.05); }.section-head, .visit-head { display: flex; justify-content: space-between; align-items: center; }.section-title { font-size: 31rpx; color: #1E293B; font-weight: 900; }.section-tag { font-size: 22rpx; color: #0F766E; background: #ECFDF5; padding: 8rpx 14rpx; border-radius: 999rpx; }
-.bar-chart { display: flex; justify-content: space-between; align-items: flex-end; height: 260rpx; margin-top: 26rpx; }.bar-item { display: flex; flex-direction: column; align-items: center; gap: 12rpx; }.bar-track { width: 34rpx; height: 210rpx; border-radius: 999rpx; background: #E2E8F0; display: flex; align-items: flex-end; overflow: hidden; }.bar-fill { width: 100%; border-radius: 999rpx; background: linear-gradient(180deg, #10B981, #2563EB); }.bar-label { font-size: 22rpx; color: #64748B; }
-.ai-warning { background: #FFF7ED; border: 1rpx solid #FED7AA; }.warning-title { display: block; font-size: 30rpx; color: #9A3412; font-weight: 900; }.warning-text { display: block; margin-top: 14rpx; font-size: 26rpx; line-height: 1.6; color: #9A3412; }
-.report-card { display: flex; align-items: center; gap: 20rpx; }.report-icon-wrap { width: 82rpx; height: 82rpx; border-radius: 16rpx; background: #ECFDF5; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }.report-icon { width: 44rpx; height: 44rpx; }.report-info { flex: 1; min-width: 0; }.report-title, .visit-title { display: block; font-size: 29rpx; font-weight: 900; color: #1E293B; }.report-desc, .visit-desc { display: block; margin-top: 8rpx; font-size: 24rpx; color: #64748B; line-height: 1.5; }.report-date, .visit-date { font-size: 22rpx; color: #94A3B8; }.report-status { color: #0F766E; font-size: 22rpx; }
-.empty-tip { margin-top: 24rpx; padding: 24rpx; border-radius: 22rpx; background: #F8FAFC; color: #64748B; font-size: 24rpx; line-height: 1.5; text-align: center; }
-.timeline-card { display: flex; gap: 20rpx; }.timeline-dot { width: 22rpx; height: 22rpx; margin-top: 10rpx; border-radius: 50%; background: #10B981; flex-shrink: 0; }.visit-body { flex: 1; }.visit-hospital { font-size: 22rpx; color: #94A3B8; }
+.page-container { min-height: 100vh; background: #F4F7F5; }
+.custom-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 999; background: rgba(244, 247, 245, 0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1rpx solid #DDE7E1; }
+.status-bar { height: var(--status-bar-height); }
+.nav-content { height: 100rpx; padding: 0 32rpx; display: flex; align-items: center; justify-content: center; position: relative; }
+.nav-title { position: absolute; left: 50%; transform: translateX(-50%); font-size: 36rpx; font-weight: 700; color: #17231F; }
+.page-content { padding: 32rpx; padding-top: calc(var(--status-bar-height) + 100rpx + 32rpx); padding-bottom: 170rpx; }
+
+.score-banner { display: flex; align-items: center; gap: 32rpx; padding: 40rpx; border-radius: 24rpx; background: #FFFFFF; border: 1rpx solid #DDE7E1; box-shadow: 0 12rpx 28rpx rgba(31, 72, 55, 0.06); }
+.score-ring { width: 136rpx; height: 136rpx; border-radius: 50%; background: conic-gradient(#0E9F8E 0deg, #0E9F8E 295deg, #DDE7E1 295deg); display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; flex-shrink: 0; }
+.score-ring::before { content: ''; position: absolute; width: 104rpx; height: 104rpx; border-radius: 50%; background: #FFFFFF; }
+.score-value { position: relative; z-index: 1; font-size: 52rpx; font-weight: 700; color: #17231F; line-height: 1; }
+.score-unit { position: relative; z-index: 1; font-size: 24rpx; color: #71817A; margin-top: 4rpx; }
+.score-info { flex: 1; }
+.score-title { display: block; font-size: 36rpx; font-weight: 700; color: #17231F; }
+.score-desc { display: block; margin-top: 12rpx; font-size: 26rpx; line-height: 1.5; color: #71817A; }
+
+.metric-row { display: flex; gap: 16rpx; margin-top: 32rpx; }
+.metric-pill { flex: 1; padding: 28rpx 20rpx; border-radius: 18rpx; background: #FFFFFF; border: 1rpx solid #DDE7E1; display: flex; flex-direction: column; align-items: center; }
+.metric-pill.warn { background: #FFF7ED; border-color: #F3D8B7; }
+.metric-pill-label { font-size: 24rpx; color: #71817A; }
+.metric-pill-value { margin-top: 12rpx; font-size: 40rpx; font-weight: 700; color: #17231F; line-height: 1; }
+.metric-pill-unit { margin-top: 10rpx; font-size: 22rpx; color: #9AA8A1; text-align: center; }
+
+.record-entry { display: flex; align-items: center; gap: 20rpx; margin-top: 24rpx; padding: 24rpx; border-radius: 18rpx; background: #F0FAF6; border: 1rpx solid #BFE3D6; }
+.record-entry-icon { width: 64rpx; height: 64rpx; display: flex; align-items: center; justify-content: center; border-radius: 16rpx; background: #E1F3ED; flex-shrink: 0; }.record-entry-icon image { width: 36rpx; height: 36rpx; }
+.record-entry-copy { flex: 1; min-width: 0; }.record-entry-title { display: block; color: #17231F; font-size: 28rpx; font-weight: 700; }.record-entry-desc { display: block; margin-top: 8rpx; color: #71817A; font-size: 23rpx; line-height: 1.4; }.record-entry-arrow { width: 28rpx; height: 28rpx; opacity: 0.55; flex-shrink: 0; }
+
+.tab-switch { display: flex; gap: 12rpx; margin-top: 40rpx; padding: 6rpx; border-radius: 16rpx; background: #E8F1ED; border: 1rpx solid #DDE7E1; }
+.tab-btn { flex: 1; height: 72rpx; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; background: transparent; color: #71817A; font-size: 28rpx; transition: all 0.2s; }
+.tab-btn.active { background: #FFFFFF; color: #0E9F8E; font-weight: 700; box-shadow: 0 4rpx 12rpx rgba(31, 72, 55, 0.08); }
+
+.tab-panel { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10rpx); } to { opacity: 1; transform: translateY(0); } }
+
+.chart-card { margin-top: 32rpx; padding: 36rpx; border-radius: 24rpx; background: #FFFFFF; border: 1rpx solid #DDE7E1; box-shadow: 0 10rpx 24rpx rgba(31, 72, 55, 0.05); }
+.section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32rpx; }
+.section-title { font-size: 32rpx; color: #17231F; font-weight: 700; }
+.section-tag { font-size: 22rpx; color: #0E9F8E; background: #E1F3ED; padding: 8rpx 16rpx; border-radius: 999rpx; }
+
+.bar-chart { display: flex; justify-content: space-between; align-items: flex-end; height: 300rpx; }
+.bar-item { display: flex; flex-direction: column; align-items: center; gap: 16rpx; }
+.bar-track { width: 40rpx; height: 240rpx; border-radius: 999rpx; background: #E8F1ED; display: flex; align-items: flex-end; overflow: hidden; }
+.bar-fill { width: 100%; border-radius: 999rpx; background: #0E9F8E; transition: height 0.4s ease; }
+.bar-label { font-size: 24rpx; color: #71817A; }
+
+.ai-warning { margin-top: 32rpx; padding: 32rpx; border-radius: 20rpx; background: rgba(249, 115, 22, 0.08); border: 1rpx solid rgba(249, 115, 22, 0.2); display: flex; gap: 20rpx; align-items: flex-start; }
+.warning-icon { width: 48rpx; height: 48rpx; flex-shrink: 0; }
+.warning-body { flex: 1; }
+.warning-title { display: block; font-size: 30rpx; color: #F97316; font-weight: 700; }
+.warning-text { display: block; margin-top: 12rpx; font-size: 26rpx; line-height: 1.65; color: #CBD5E1; }
+
+.report-card { margin-top: 20rpx; padding: 28rpx 32rpx; border-radius: 18rpx; background: #FFFFFF; border: 1rpx solid #DDE7E1; display: flex; gap: 20rpx; overflow: hidden; box-shadow: 0 8rpx 20rpx rgba(31, 72, 55, 0.04); }
+.report-card:first-child { margin-top: 32rpx; }
+.report-bar { width: 6rpx; border-radius: 999rpx; background: #0E9F8E; flex-shrink: 0; }
+.report-info { flex: 1; min-width: 0; }
+.report-top { display: flex; justify-content: space-between; align-items: center; gap: 16rpx; }
+.report-title { font-size: 30rpx; font-weight: 700; color: #17231F; }
+.report-status { font-size: 24rpx; color: #0E9F8E; font-weight: 600; flex-shrink: 0; }
+.report-desc { display: block; margin-top: 10rpx; font-size: 26rpx; color: #71817A; line-height: 1.5; }
+.report-date { display: block; margin-top: 10rpx; font-size: 24rpx; color: #9AA8A1; }
+
+.timeline { margin-top: 32rpx; }
+.timeline-item { display: flex; gap: 24rpx; }
+.timeline-track { display: flex; flex-direction: column; align-items: center; width: 28rpx; flex-shrink: 0; }
+.timeline-dot { width: 24rpx; height: 24rpx; border-radius: 50%; background: #0E9F8E; flex-shrink: 0; box-shadow: 0 0 0 6rpx rgba(14, 159, 142, 0.15); }
+.timeline-line { flex: 1; width: 2rpx; background: #DDE7E1; margin: 8rpx 0; }
+.timeline-item:last-child .timeline-line { display: none; }
+.visit-body { flex: 1; padding-bottom: 40rpx; }
+.visit-date { display: block; font-size: 24rpx; color: #9AA8A1; font-weight: 600; }
+.visit-title { display: block; margin-top: 10rpx; font-size: 30rpx; font-weight: 700; color: #17231F; }
+.visit-desc { display: block; margin-top: 10rpx; font-size: 26rpx; color: #71817A; line-height: 1.65; }
+.visit-hospital { display: block; margin-top: 10rpx; font-size: 24rpx; color: #9AA8A1; }
 </style>

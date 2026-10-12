@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -51,6 +51,23 @@ class MedicalRecordORM(Base):
     date: Mapped[str] = mapped_column(String(32), nullable=False, default="")
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="待确认")
     content: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+
+class MedicalRecordItemORM(Base):
+    __tablename__ = "medical_record_items"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    record_id: Mapped[str] = mapped_column(
+        ForeignKey("medical_records.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    label: Mapped[str] = mapped_column(String(128), nullable=False)
+    value: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    unit: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    reference: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="normal")
 
 
 class UploadAssetORM(Base):

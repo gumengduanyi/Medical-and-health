@@ -1,10 +1,17 @@
 <template>
   <view class="container">
-    <view class="header">
-      <view><text class="title">个人健康信息</text><text class="desc">AI 建议会结合这些基础信息、病史和药物过敏史生成。</text></view>
-      <button class="top-edit-btn" @click="toggleEdit">{{ isEdit ? '取消' : '修改' }}</button>
+    <view class="custom-nav">
+      <view class="status-bar"></view>
+      <view class="nav-content">
+        <view class="nav-back" @click="goBack">
+          <text class="nav-back-icon">‹</text>
+        </view>
+        <text class="nav-title">个人健康信息</text>
+        <view class="top-edit-btn" @click="toggleEdit">{{ isEdit ? '保存' : '修改' }}</view>
+      </view>
     </view>
 
+    <view class="page-content">
     <view class="summary-card">
       <view class="summary-item"><text class="summary-value">22.9</text><text class="summary-label">BMI</text></view>
       <view class="summary-item"><text class="summary-value">高血压</text><text class="summary-label">重点病史</text></view>
@@ -23,10 +30,7 @@
         <input class="input" v-model="formData[item.key]" :placeholder="item.placeholder" :disabled="!isEdit" />
       </view>
     </view>
-
-    <view class="notice-card"><text class="notice-title">AI 个性化依据</text><text class="notice-text">完善过敏史、既往病史和家族史后，AI 可以更准确地判断药品禁忌、指标异常风险和复诊建议。</text></view>
-
-    <view class="save-wrap" v-if="isEdit"><button class="save-btn" @click="saveInfo">保存信息</button></view>
+    </view>
   </view>
 </template>
 
@@ -49,7 +53,14 @@ export default {
     }
   },
   methods: {
-    toggleEdit() { this.isEdit = !this.isEdit },
+    goBack() { uni.navigateBack() },
+    toggleEdit() {
+      if (this.isEdit) {
+        this.saveInfo()
+      } else {
+        this.isEdit = true
+      }
+    },
     saveInfo() {
       if (!this.formData.name || !this.formData.age) {
         uni.showToast({ title: '请补全姓名和年龄', icon: 'none' })
@@ -62,12 +73,19 @@ export default {
 </script>
 
 <style scoped>
-.container { min-height: 100vh; background: linear-gradient(180deg, #EEFBF7 0%, #F8FAFC 34%, #F8FAFC 100%); padding: 28rpx 28rpx 120rpx; box-sizing: border-box; }.header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20rpx; padding: 12rpx 0 26rpx; }.title { display: block; font-size: 40rpx; font-weight: 900; color: #1E293B; }.desc { display: block; max-width: 490rpx; margin-top: 10rpx; font-size: 24rpx; line-height: 1.45; color: #64748B; }
-.top-edit-btn { margin: 0; min-width: 118rpx; height: 66rpx; line-height: 66rpx; background: #0F766E; color: #fff; border: none; border-radius: 14rpx; font-size: 27rpx; font-weight: 800; }
-.summary-card { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16rpx; margin-bottom: 24rpx; }.summary-item { padding: 24rpx 12rpx; text-align: center; border-radius: 16rpx; background: #fff; box-shadow: 0 8rpx 22rpx rgba(15,23,42,.05); }.summary-value { display: block; font-size: 30rpx; color: #0F766E; font-weight: 900; }.summary-label { display: block; margin-top: 8rpx; font-size: 22rpx; color: #64748B; }
-.status-card { margin-bottom: 24rpx; padding: 28rpx; border-radius: 16rpx; background: linear-gradient(135deg, #ECFDF5, #EFF6FF); border: 1rpx solid #BFDBFE; }
-.status-title { display: block; font-size: 30rpx; color: #0F766E; font-weight: 900; }.status-desc { display: block; margin-top: 10rpx; font-size: 24rpx; color: #334155; line-height: 1.5; }.status-bar { height: 12rpx; margin-top: 20rpx; border-radius: 999rpx; background: rgba(255,255,255,.8); overflow: hidden; }.status-fill { height: 100%; border-radius: 999rpx; background: linear-gradient(90deg, #10B981, #2563EB); }
-.form-card, .notice-card { background: #fff; border-radius: 16rpx; padding: 30rpx; box-shadow: 0 8rpx 22rpx rgba(15,23,42,.05); }.form-item { display: flex; align-items: center; padding: 24rpx 0; border-bottom: 1rpx solid #F1F5F9; }.form-item:last-child { border-bottom: none; }.label { width: 180rpx; font-size: 26rpx; color: #64748B; }.input { flex: 1; font-size: 28rpx; color: #1E293B; }.input[disabled] { color: #334155; }
-.required { color: #E11D48; margin-left: 4rpx; }
-.notice-card { margin-top: 24rpx; background: linear-gradient(180deg, #FFFFFF, #ECFDF5); }.notice-title { display: block; font-size: 30rpx; color: #0F766E; font-weight: 900; }.notice-text { display: block; margin-top: 12rpx; font-size: 25rpx; color: #334155; line-height: 1.6; }.save-wrap { margin-top: 36rpx; }.save-btn { width: 100%; height: 86rpx; line-height: 86rpx; background: #0F766E; color: #fff; border: none; border-radius: 14rpx; font-size: 30rpx; font-weight: 800; }
+.container { min-height: 100vh; background: #F4F7F5; }
+.custom-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 999; background: rgba(244, 247, 245, 0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1rpx solid #DDE7E1; }
+.status-bar { height: var(--status-bar-height); }
+.nav-content { height: 100rpx; padding: 0 32rpx; display: flex; align-items: center; justify-content: space-between; position: relative; }
+.nav-back { width: 60rpx; height: 60rpx; display: flex; align-items: center; justify-content: center; }
+.nav-back-icon { font-size: 56rpx; color: #17231F; font-weight: 300; line-height: 1; }
+.nav-title { position: absolute; left: 50%; transform: translateX(-50%); font-size: 36rpx; font-weight: 700; color: #17231F; }
+.top-edit-btn { padding: 12rpx 24rpx; background: #E1F3ED; color: #0E9F8E; border-radius: 8rpx; font-size: 26rpx; font-weight: 600; border: 1rpx solid #BFE3D6; }
+.page-content { padding: 32rpx; padding-top: calc(var(--status-bar-height) + 100rpx + 32rpx); padding-bottom: 80rpx; }
+
+.summary-card { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16rpx; }.summary-item { padding: 28rpx 12rpx; text-align: center; border-radius: 18rpx; background: #FFFFFF; border: 1rpx solid #DDE7E1; }.summary-value { display: block; font-size: 32rpx; color: #0E9F8E; font-weight: 700; }.summary-label { display: block; margin-top: 10rpx; font-size: 22rpx; color: #71817A; }
+.status-card { margin-top: 24rpx; padding: 32rpx; border-radius: 22rpx; background: #FFFFFF; border: 1rpx solid #DDE7E1; box-shadow: 0 10rpx 24rpx rgba(31, 72, 55, 0.05); }
+.status-title { display: block; font-size: 30rpx; color: #17231F; font-weight: 700; }.status-desc { display: block; margin-top: 10rpx; font-size: 24rpx; color: #71817A; line-height: 1.5; }.status-bar { height: 12rpx; margin-top: 20rpx; border-radius: 999rpx; background: #E8F1ED; overflow: hidden; }.status-fill { height: 100%; border-radius: 999rpx; background: #0E9F8E; }
+.form-card { margin-top: 24rpx; background: #FFFFFF; border: 1rpx solid #DDE7E1; border-radius: 22rpx; padding: 32rpx; box-shadow: 0 10rpx 24rpx rgba(31, 72, 55, 0.05); }.form-item { display: flex; align-items: center; padding: 24rpx 0; border-bottom: 1rpx solid #E8F1ED; }.form-item:last-child { border-bottom: none; }.label { width: 180rpx; font-size: 26rpx; color: #71817A; }.input { flex: 1; font-size: 28rpx; color: #17231F; }.input[disabled] { color: #50605A; }
+.required { color: #E58A3A; margin-left: 4rpx; }
 </style>

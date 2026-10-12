@@ -52,12 +52,23 @@ class Medicine(BaseModel):
     risk: str = ""
 
 
+class MedicalRecordItem(BaseModel):
+    id: str = ""
+    position: int = 0
+    label: str
+    value: str = ""
+    unit: str = ""
+    reference: str = ""
+    status: str = "normal"
+
+
 class MedicalRecord(BaseModel):
     id: str = ""
     title: str
     date: str = ""
     status: str = "已确认"
     content: str = ""
+    items: list[MedicalRecordItem] = Field(default_factory=list)
 
 
 class OcrConfirmRequest(BaseModel):
