@@ -79,6 +79,3 @@ backend/app/services/knowledge_base.py
 
 本地 MySQL + Qdrant 可用 Docker Compose 启动：
 
-```text
-docker compose up -d mysql qdrant
-```
