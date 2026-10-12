@@ -8,6 +8,8 @@ my-uniapp-demo/
   backend/     Python/FastAPI 后端 API
 ```
 
+项目当前状态和后续交付计划请查看：[PROJECT_STATUS.md](PROJECT_STATUS.md)
+
 ## 前端
 
 前端目录：`frontend/`
