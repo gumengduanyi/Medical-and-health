@@ -71,6 +71,21 @@
       </scroll-view>
       <view class="notice-box">{{ noticeText }}</view>
     </view>
+
+    <view v-if="isMedicineMode && leafletCandidate" class="leaflet-card">
+      <view class="section-head">
+        <text class="section-title">百度百科智能体结果</text>
+        <text class="confidence" :class="{ blocked: leafletCandidate.status !== 'candidate' }">
+          {{ leafletCandidate.status === 'candidate' ? `置信度 ${Math.round((leafletCandidate.confidence || 0) * 100)}%` : '需人工处理' }}
+        </text>
+      </view>
+      <text class="leaflet-source">来源：百度百科浏览器可见页面</text>
+      <view v-for="name in leafletSectionNames" :key="name" class="leaflet-section">
+        <text class="leaflet-section-title">{{ name }}</text>
+        <text class="leaflet-section-content">{{ leafletCandidate.sections && leafletCandidate.sections[name] ? leafletCandidate.sections[name] : '未找到该章节' }}</text>
+      </view>
+      <view class="notice-box leaflet-notice">{{ leafletCandidate.reason }}</view>
+    </view>
     </view>
 
     <view v-if="scanResult" class="result-action-bar">
@@ -97,7 +112,9 @@ export default {
       scanResult: null,
       rawFields: [],
       rawTexts: [],
-      storedFile: ''
+      storedFile: '',
+      outputDir: '',
+      leafletCandidate: null
     }
   },
   onLoad(options = {}) {
@@ -108,11 +125,12 @@ export default {
   },
   computed: {
     isMedicineMode() { return this.mode === 'medicine' || this.pageMode === 'medicine' },
-    pageTitle() { return this.isMedicineMode ? '药箱 OCR 录入' : '档案 OCR 录入' },
+    pageTitle() { return this.isMedicineMode ? '药箱智能录入' : '档案智能录入' },
     pageDesc() { return this.isMedicineMode ? '拍摄药盒或说明书，识别药品名称、用法和有效期。' : '拍摄体检报告、诊断证明或化验单，识别后先核对再入库。' },
     scanTitle() { return this.isMedicineMode ? '识别药品资料' : '选择识别资料类型' },
     scanDesc() { return this.isMedicineMode ? '建议拍摄完整药盒或说明书，确保药品名称、规格和有效期清晰可见。' : '建议保持文字完整、光线充足，识别完成后请手动确认关键指标。' },
-    noticeText() { return this.isMedicineMode ? '请重点核对药品名称、规格、用法和有效期。确认后会同步到智慧药箱。' : '请重点核对异常指标、日期和医院名称。确认后会同步到健康档案。' }
+    noticeText() { return this.isMedicineMode ? '请重点核对药品名称、规格、用法和有效期。确认后会同步到智慧药箱。' : '请重点核对异常指标、日期和医院名称。确认后会同步到健康档案。' },
+    leafletSectionNames() { return ['作用功效', '用法用量', '禁忌'] }
   },
   methods: {
     goBack() { uni.navigateBack() },
@@ -144,6 +162,8 @@ export default {
       this.rawFields = Array.isArray(result.fields) ? result.fields : []
       this.rawTexts = Array.isArray(result.texts) ? result.texts : []
       this.storedFile = result.storedFile || ''
+      this.outputDir = result.outputDir || ''
+      this.leafletCandidate = result.leafletCandidate || null
       this.scanResult = this.rawFields.map((item) => ({
         label: item.label || item.name || '字段',
         value: item.value || '',
@@ -166,13 +186,15 @@ export default {
       this.isSubmitting = true
       uni.showLoading({ title: '入库中' })
       try {
-        const title = this.sourceType === 'medicine' ? 'OCR 药品确认' : 'OCR 体检报告确认'
+        const title = this.sourceType === 'medicine' ? '药品信息确认' : '体检报告确认'
         await confirmOcrResult({
           sourceType: this.sourceType,
           title,
           fields: this.rawFields,
           texts: this.rawTexts,
-          storedFile: this.storedFile
+          storedFile: this.storedFile,
+          outputDir: this.outputDir,
+          leafletCandidate: this.leafletCandidate
         })
         uni.showToast({ title: '已入库', icon: 'success' })
         setTimeout(() => uni.navigateBack(), 500)
@@ -212,6 +234,11 @@ export default {
 .ocr-table.medicine { min-width: 860rpx; }.medicine-name { width: 300rpx; color: #17231F; }.medicine-value { width: 430rpx; color: #17231F; }.medicine-status { width: 130rpx; text-align: center; color: #187A83; font-weight: 600; }.medicine-table-head .table-cell { color: #187A83; }.medicine-table-row { min-height: 92rpx; }
 .table-row { display: flex; align-items: center; min-height: 82rpx; border-bottom: 1rpx solid #E8F1ED; }.table-row.warning { background: #FFF9F1; }.table-head { min-height: 68rpx; background: #F0FAF6; border-radius: 10rpx; border-bottom: none; }.table-cell { flex-shrink: 0; padding: 18rpx 14rpx; box-sizing: border-box; color: #50605A; font-size: 23rpx; line-height: 1.35; word-break: break-all; }.table-cell.name { width: 360rpx; color: #17231F; }.table-cell.value { width: 170rpx; font-weight: 700; color: #17231F; }.table-cell.unit { width: 160rpx; }.table-cell.reference { width: 230rpx; }.table-cell.status { width: 140rpx; text-align: center; color: #36B37E; font-weight: 600; }.table-head .table-cell { padding-top: 14rpx; padding-bottom: 14rpx; color: #0E9F8E; font-size: 22rpx; font-weight: 700; }.table-row.warning .table-cell.value, .table-cell.status.warning { color: #C56F20; }.table-cell.status.pending { color: #9A7A3A; }
 .notice-box { margin-top: 22rpx; padding: 24rpx; border-radius: 14rpx; background: #FFF7ED; color: #B96B25; font-size: 24rpx; line-height: 1.5; border: 1rpx solid #F3D8B7; }
+.leaflet-source { display: block; margin-top: 16rpx; color: #71817A; font-size: 23rpx; }
+.leaflet-section { margin-top: 22rpx; padding-top: 20rpx; border-top: 1rpx solid #E8F1ED; }
+.leaflet-section-title { display: block; color: #0E7F72; font-size: 27rpx; font-weight: 700; }
+.leaflet-section-content { display: block; margin-top: 10rpx; color: #50605A; font-size: 25rpx; line-height: 1.6; white-space: pre-wrap; }
+.leaflet-notice { margin-top: 22rpx; }.confidence.blocked { background: #FFF7ED; color: #B96B25; }
 .result-action-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 998; display: flex; gap: 16rpx; padding: 18rpx 32rpx calc(18rpx + env(safe-area-inset-bottom)); background: rgba(255, 255, 255, 0.96); border-top: 1rpx solid #DDE7E1; box-shadow: 0 -8rpx 24rpx rgba(31, 72, 55, 0.08); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
 .action-btn { flex: 1; height: 84rpx; display: flex; align-items: center; justify-content: center; border-radius: 14rpx; font-size: 28rpx; font-weight: 700; }.action-btn.secondary { color: #50605A; background: #F4F7F5; border: 1rpx solid #DDE7E1; }.action-btn.primary { color: #FFFFFF; background: #0E9F8E; border: 1rpx solid #0E9F8E; }
 </style>

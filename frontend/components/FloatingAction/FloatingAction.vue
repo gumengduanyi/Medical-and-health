@@ -10,7 +10,6 @@
     <view class="fab-core">
       <view class="fab-glow"></view>
       <text class="fab-main">AI</text>
-      <text class="fab-sub">OCR</text>
     </view>
   </view>
 </template>
@@ -112,6 +111,7 @@ export default {
       try {
         uni.setStorageSync('floating_action_position', { x: this.x, y: this.y })
       } catch (e) {}
+      if (!this.moved) this.navigateToTarget()
     },
     schedulePositionUpdate() {
       if (this.dragFrame) return
@@ -129,8 +129,11 @@ export default {
       this.y = this.pendingY
     },
     handleTap() {
-      if (this.moved) return
-      if (Date.now() - this.startTime > 260) return
+      if (!this.moved) this.navigateToTarget()
+    },
+    navigateToTarget() {
+      if (this.startTime === 0) return
+      this.startTime = 0
       smoothNavigateTo(this.url)
     }
   }
@@ -179,12 +182,5 @@ export default {
   color: #FFFFFF;
   font-weight: 800;
   letter-spacing: 1rpx;
-}
-.fab-sub {
-  margin-top: 6rpx;
-  font-size: 18rpx;
-  line-height: 1;
-  color: rgba(255, 255, 255, 0.88);
-  font-weight: 700;
 }
 </style>

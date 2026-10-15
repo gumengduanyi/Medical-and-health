@@ -27,9 +27,14 @@ def _medicine_to_schema(row: MedicineORM) -> Medicine:
         id=row.id,
         name=row.name,
         dose=row.dose,
+        specification=row.specification,
+        manufacturer=row.manufacturer,
+        approval_number=row.approval_number,
         stock=row.stock,
         expire=row.expire,
         risk=row.risk,
+        imagePath=row.image_path,
+        ocrOutputDir=row.ocr_output_dir,
     )
 
 
@@ -216,9 +221,14 @@ class HealthRepository:
             id=medicine.id,
             name=medicine.name,
             dose=medicine.dose,
+            specification=medicine.specification,
+            manufacturer=medicine.manufacturer,
+            approval_number=medicine.approval_number,
             stock=medicine.stock,
             expire=medicine.expire,
             risk=medicine.risk,
+            image_path=medicine.image_path,
+            ocr_output_dir=medicine.ocr_output_dir,
         )
         self.session.add(row)
         self.session.commit()
@@ -230,9 +240,14 @@ class HealthRepository:
             return None
         row.name = payload.name
         row.dose = payload.dose
+        row.specification = payload.specification
+        row.manufacturer = payload.manufacturer
+        row.approval_number = payload.approval_number
         row.stock = payload.stock
         row.expire = payload.expire
         row.risk = payload.risk
+        row.image_path = payload.image_path
+        row.ocr_output_dir = payload.ocr_output_dir
         self.session.commit()
         return _medicine_to_schema(row)
 

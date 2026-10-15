@@ -56,7 +56,7 @@
         <view class="chart-card">
           <view class="section-head">
             <text class="section-title">近 7 天血压趋势</text>
-            <text class="section-tag">OCR+手动记录</text>
+            <text class="section-tag">报告+手动记录</text>
           </view>
           <view class="bar-chart">
             <view class="bar-item" v-for="item in pressureList" :key="item.day">

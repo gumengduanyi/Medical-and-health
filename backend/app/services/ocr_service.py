@@ -16,8 +16,17 @@ from typing import Any
 from fastapi import UploadFile
 
 from app.core.config import settings
-from app.schemas.models import MedicalRecord, MedicalRecordItem, Medicine, OcrConfirmRequest, OcrConfirmResponse
+from app.schemas.models import (
+    LeafletDiscoverRequest,
+    LeafletImportRequest,
+    MedicalRecord,
+    MedicalRecordItem,
+    Medicine,
+    OcrConfirmRequest,
+    OcrConfirmResponse,
+)
 from app.services import data_store
+from app.services import leaflet_service
 from app.services.upload_service import detect_image_type
 
 
@@ -310,7 +319,23 @@ def _extract_report_fields(texts: list[str]) -> list[dict[str, Any]]:
 
 def _extract_medicine_fields(texts: list[str]) -> list[dict[str, Any]]:
     fields: list[dict[str, Any]] = []
-    labelled_keywords = ("药品名称", "通用名称", "商品名称", "用法用量", "用法", "用量", "规格", "有效期", "生产日期", "批准文号")
+    labelled_keywords = (
+        "药品名称",
+        "通用名称",
+        "商品名称",
+        "用法用量",
+        "用法",
+        "用量",
+        "规格",
+        "有效期",
+        "生产日期",
+        "批准文号",
+        "生产企业",
+        "生产厂家",
+        "上市许可持有人",
+        "委托生产企业",
+        "制造商",
+    )
 
     def add_field(label: str, value: str) -> None:
         value = re.sub(r"\s+", " ", value).strip(" ：:：")
@@ -326,7 +351,21 @@ def _extract_medicine_fields(texts: list[str]) -> list[dict[str, Any]]:
 
     name_field = next((item for item in fields if item["label"] in ("药品名称", "通用名称", "商品名称")), None)
     if name_field is None:
-        ignored = ("用法", "用量", "规格", "有效期", "生产日期", "批准文号", "注意事项", "禁忌")
+        ignored = (
+            "用法",
+            "用量",
+            "规格",
+            "有效期",
+            "生产日期",
+            "批准文号",
+            "生产企业",
+            "生产厂家",
+            "上市许可持有人",
+            "委托生产企业",
+            "制造商",
+            "注意事项",
+            "禁忌",
+        )
         candidate = next(
             (text for text in texts if len(text) >= 2 and not text.isdigit() and not any(keyword in text for keyword in ignored)),
             "",
@@ -357,6 +396,19 @@ def _scan_image_path(image_path: Path, original_filename: str = "", source_type:
         confidence = 0
 
     _normalise_generated_html(result["output_dir"])
+    leaflet_candidate = None
+    if source_type == "medicine":
+        generic_name = _field_value(fields, ("药品名称", "通用名称", "商品名称"))
+        if generic_name:
+            discover_result = leaflet_service.discover_leaflet_candidates(
+                LeafletDiscoverRequest(
+                    generic_name=generic_name,
+                    manufacturer=_field_value(fields, ("生产企业", "生产厂家", "上市许可持有人", "制造商")),
+                    approval_number=_field_value(fields, ("批准文号",)),
+                    specification=_field_value(fields, ("规格",)),
+                )
+            )
+            leaflet_candidate = discover_result.candidates[0] if discover_result.candidates else None
     return {
         "id": image_path.stem,
         "sourceType": source_type,
@@ -373,6 +425,7 @@ def _scan_image_path(image_path: Path, original_filename: str = "", source_type:
         "file": original_filename or image_path.name,
         "storedFile": str(image_path),
         "outputDir": result["output_dir"],
+        "leafletCandidate": leaflet_candidate.model_dump(by_alias=True) if leaflet_candidate else None,
         "message": "PaddleOCR PPStructureV3 识别完成，请核对后再入库。",
     }
 
@@ -484,12 +537,43 @@ def confirm_ocr_result(payload: OcrConfirmRequest) -> OcrConfirmResponse:
             Medicine(
                 name=name[:80],
                 dose=_field_value(payload.fields, ("用法用量", "用法", "用量", "规格")),
+                specification=_field_value(payload.fields, ("规格",)),
+                manufacturer=_field_value(payload.fields, ("生产企业", "生产厂家", "上市许可持有人", "制造商")),
+                approval_number=_field_value(payload.fields, ("批准文号",)),
                 stock=0,
                 expire=_field_value(payload.fields, ("有效期", "生产日期")),
                 risk=f"OCR 确认入库，原文：{joined_text[:120]}",
+                imagePath=payload.stored_file,
+                ocrOutputDir=payload.output_dir,
             )
         )
-        return OcrConfirmResponse(sourceType="medicine", medicine=medicine, message="OCR 药品信息已确认入库。")
+        leaflet = None
+        leaflet_candidate = payload.leaflet_candidate
+        if leaflet_candidate and leaflet_candidate.status == "candidate":
+            try:
+                leaflet = leaflet_service.import_baike_leaflet(
+                    LeafletImportRequest(
+                        generic_name=name,
+                        specification=medicine.specification,
+                        manufacturer=medicine.manufacturer,
+                        approval_number=medicine.approval_number,
+                    )
+                )
+            except ValueError as exc:
+                leaflet_candidate = leaflet_candidate.model_copy(
+                    update={
+                        "status": "manual_required",
+                        "reason": f"药品已入库，但说明书导入需要人工处理：{exc}",
+                    }
+                )
+        message = "OCR 药品和百度百科候选已确认入库。" if leaflet else "OCR 药品已确认入库，说明书候选需要人工处理。"
+        return OcrConfirmResponse(
+            sourceType="medicine",
+            medicine=medicine,
+            leafletCandidate=leaflet_candidate,
+            leaflet=leaflet,
+            message=message,
+        )
 
     title = payload.title or "OCR 识别报告"
     record = data_store.create_record(

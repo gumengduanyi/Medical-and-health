@@ -38,9 +38,14 @@ class MedicineORM(Base):
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     dose: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    specification: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    manufacturer: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    approval_number: Mapped[str] = mapped_column(String(128), nullable=False, default="")
     stock: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     expire: Mapped[str] = mapped_column(String(32), nullable=False, default="")
     risk: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    image_path: Mapped[str] = mapped_column(String(1024), nullable=False, default="")
+    ocr_output_dir: Mapped[str] = mapped_column(String(1024), nullable=False, default="")
 
 
 class MedicalRecordORM(Base):
@@ -79,3 +84,39 @@ class UploadAssetORM(Base):
     size: Mapped[int] = mapped_column(Integer, nullable=False)
     content_type: Mapped[str] = mapped_column(String(128), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class DrugLeafletORM(Base):
+    __tablename__ = "drug_leaflets"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    generic_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    brand_name: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    dosage_form: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    specification: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    manufacturer: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    approval_number: Mapped[str] = mapped_column(String(128), nullable=False, default="", index=True)
+    source_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(32), nullable=False, default="url")
+    raw_file_path: Mapped[str] = mapped_column(String(1024), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    published_at: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending_review", index=True)
+    parser_version: Mapped[str] = mapped_column(String(32), nullable=False, default="leaflet-v1")
+
+
+class DrugLeafletSectionORM(Base):
+    __tablename__ = "drug_leaflet_sections"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    leaflet_id: Mapped[str] = mapped_column(
+        ForeignKey("drug_leaflets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    section_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    section_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)

@@ -10,7 +10,7 @@
     <view class="page-content">
     <view class="user-card">
       <view class="avatar-wrap"><image class="avatar-img" src="/static/icons/user.png" mode="aspectFit" /></view>
-      <view class="user-info"><text class="user-name">王先生</text><text class="user-desc">已接入 OCR 报告、药箱与 AI 健康建议</text></view>
+      <view class="user-info"><text class="user-name">王先生</text><text class="user-desc">已接入健康报告、药箱与 AI 健康建议</text></view>
     </view>
 
     <view class="stats-grid">
@@ -59,12 +59,12 @@ export default {
     return {
       menus: [
         { title: '个人健康信息', desc: '身高体重、病史、过敏史与 AI 个性化依据', icon: '/static/icons/profile.png', theme: 'green', route: '/pages-sub/healthInfo/healthInfo' },
-        { title: '档案 OCR 识别', desc: '识别体检报告、诊断证明和化验单', icon: '/static/icons/report.png', theme: 'blue', route: '/pages-sub/ocr_scan/ocr_scan' },
+        { title: '档案智能识别', desc: '识别体检报告、诊断证明和化验单', icon: '/static/icons/report.png', theme: 'blue', route: '/pages-sub/ocr_scan/ocr_scan' },
         { title: '药品录入管理', desc: '新增药品、维护库存和有效期', icon: '/static/icons/pill.png', theme: 'green', route: '/pages-sub/medicine_form/medicine_form' },
         { title: 'AI 健康问答', desc: '询问报告指标、用药注意和复诊建议', icon: '/static/icons/sparkle.png', theme: 'purple', route: '/pages-sub/ai_chat/ai_chat' },
         { title: '扫码拍照上传', desc: '生成二维码，用手机拍摄并上传健康资料', icon: '/static/icons/plus.png', theme: 'blue', route: '/pages/scan_upload/scan_upload' },
         { title: '亲人健康管理', desc: '为家人建立独立档案并查看风险提醒', icon: '/static/icons/family.png', theme: 'amber' },
-        { title: '帮助与反馈', desc: '查看使用说明，反馈 OCR 或 AI 建议问题', icon: '/static/icons/help.png', theme: 'gray' }
+        { title: '帮助与反馈', desc: '查看使用说明，反馈报告识别或 AI 建议问题', icon: '/static/icons/help.png', theme: 'gray' }
       ]
     }
   },

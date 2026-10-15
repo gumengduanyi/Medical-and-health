@@ -26,7 +26,7 @@
       </view>
       <view class="entry-card" @click="goOcrScan">
         <image class="entry-icon" src="/static/icons/report.png" mode="aspectFit" />
-        <text class="entry-title">药箱 OCR 录入</text>
+        <text class="entry-title">药箱智能录入</text>
         <text class="entry-desc">识别药盒/说明书</text>
       </view>
       <view class="entry-card" @click="goAiChat">

@@ -96,6 +96,44 @@ OCR_TIMEOUT_SECONDS=600
 - `POST /api/upload/photo`：保存手机上传的图片并记录上传资产。
 - `GET /upload/camera`：手机拍照或相册选择上传页。
 
+药箱 OCR 会先把上传图片保存到 `OCR_OUTPUT_DIR`，再执行 PaddleOCR。识别到药品通用名后，后端会自动调用百度百科浏览器智能体，返回 `leafletCandidate`，其中包含 `作用功效`、`用法用量`、`禁忌` 三个目标章节的候选内容或缺失标记。用户确认入库时，药品记录会写入 `medicines` 表，同时保存 `image_path`、`ocr_output_dir`、`specification`、`manufacturer` 和 `approval_number`；若百度候选可用，还会导入到 `drug_leaflets` 和 `drug_leaflet_sections`，状态保持 `pending_review` 等待人工审核。
+
+## 药品说明书自动采集
+
+浏览器智能体依赖 Playwright Chromium。首次部署后执行 `python -m playwright install chromium`；自动化访问遇到安全验证时会停止并交给人工处理。
+
+说明书采集只保留百度百科浏览器智能体这一条路径。`POST /api/leaflets/auto-discover` 根据药品通用名打开百度百科词条，读取浏览器可见页面，并返回低置信度候选、实际找到的章节和缺失章节。系统不调用百度百科公开接口，也不接受其他网站 URL 或外部说明书 URL。
+
+批准文号、生产企业和规格可以作为 OCR 识别结果保存并供人工审核，但不会改变百度百科词条的访问路径。自动发现只读取和解析页面，不写入说明书数据库。若页面出现百度安全验证、登录要求、空页面或访问异常，候选会返回 `human_verification_required`，系统停止自动读取，不绕过验证。
+
+例如：
+
+```bash
+curl -X POST http://localhost:8000/api/leaflets/auto-discover \
+	-H 'Content-Type: application/json' \
+	-d '{
+		"generic_name": "阿托伐他汀钙片",
+		"manufacturer": "生产企业名称",
+		"approval_number": "国药准字H00000000",
+		"specification": "20mg"
+	}'
+```
+
+当前只收录三个知识类别：`作用功效`、`用法用量`、`禁忌`。正式说明书的“适应症”“作用与功效”和“药品禁忌”等标题会归一化；其他章节不会写入知识库。
+
+也可以按药品通用名自动定位百度百科词条。`/api/leaflets/import-baike` 会通过正常 Chromium 浏览器读取词条的可见页面并保存 HTML 原文，再按目标章节导入；它不调用百度百科公开接口。页面若要求安全验证，接口会返回人工接管提示；导入后仍是 `pending_review`，不能替代药品生产企业或监管机构发布的正式说明书：
+
+```bash
+curl -X POST http://localhost:8000/api/leaflets/import-baike \
+	-H 'Content-Type: application/json' \
+	-d '{
+		"generic_name": "阿托伐他汀钙片",
+		"specification": "20mg"
+	}'
+```
+
+导入结果默认为 `pending_review`。人工确认来源、药品身份和章节内容后，调用 `POST /api/leaflets/{id}/approve` 发布；`GET /api/leaflets` 可以查看导入记录。
+
 OCR 返回结果仍需要用户确认后再入库；未确认内容不要直接进入 RAG 证据池。
 
 ## 接口

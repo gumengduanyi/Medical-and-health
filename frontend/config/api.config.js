@@ -4,8 +4,9 @@ export const ENV = {
 }
 
 export const API_CONFIG = {
-  baseURL: 'http://localhost:8000/api',
+  baseURL: 'http://10.188.218.113:8000/api',
   timeout: 15000,
+  aiTimeout: 180000,
   uploadTimeout: 600000
 }
 

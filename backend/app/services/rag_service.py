@@ -11,7 +11,7 @@ from app.schemas.models import ChatResponse, RagSource
 from app.core.config import settings
 from app.services import data_store
 from app.services.knowledge_base import get_knowledge_documents
-from app.services import reranker_service, vector_service
+from app.services import leaflet_service, reranker_service, vector_service
 
 
 @dataclass(frozen=True)
@@ -25,6 +25,9 @@ class RagChunk:
 
 _TERM_PATTERN = re.compile(r"[0-9a-zA-Z]+|[\u4e00-\u9fff]+")
 _URGENT_KEYWORDS = ("胸痛", "呼吸困难", "晕厥", "意识模糊", "大出血", "呕血", "黑便", "急诊")
+_GREETING_MESSAGES = ("你好", "您好", "嗨", "哈喽", "在吗", "早上好", "中午好", "下午好", "晚上好")
+_THANKS_MESSAGES = ("谢谢", "感谢", "辛苦了", "多谢")
+_IDENTITY_MESSAGES = ("你是谁", "你能做什么", "你能干什么", "你可以做什么", "介绍一下自己")
 _OLLAMA_TIMEOUT_SECONDS = 120
 _SYSTEM_PROMPT = """你是医疗健康资料整理助手，只能基于用户健康档案和检索证据回答。
 规则：
@@ -132,11 +135,24 @@ def _build_knowledge_chunks() -> list[RagChunk]:
                 id=doc.id,
                 title=doc.title,
                 source_type=doc.source_type,
-                content=doc.content,
+                content=f"{doc.title}；关键词：{'、'.join(doc.tags)}；{doc.content}",
                 metadata={"tags": list(doc.tags), "knowledge_id": doc.id},
             )
         )
     return chunks
+
+
+def _build_leaflet_chunks() -> list[RagChunk]:
+    return [
+        RagChunk(
+            id=chunk.id,
+            title=chunk.title,
+            source_type=chunk.source_type,
+            content=chunk.content,
+            metadata=chunk.metadata,
+        )
+        for chunk in leaflet_service.approved_chunks()
+    ]
 
 
 def build_corpus() -> list[RagChunk]:
@@ -145,11 +161,17 @@ def build_corpus() -> list[RagChunk]:
         *_build_record_chunks(),
         *_build_medicine_chunks(),
         *_build_knowledge_chunks(),
+        *_build_leaflet_chunks(),
     ]
 
 
 def _is_urgent(message: str) -> bool:
     return any(keyword in message for keyword in _URGENT_KEYWORDS)
+
+
+def _matches_social_message(message: str, candidates: tuple[str, ...]) -> bool:
+    clean_message = re.sub(r"[，。！？、,.!?\s]", "", message).lower()
+    return clean_message in candidates
 
 
 def _format_sources(chunks: list[RagChunk], scores: dict[str, float]) -> list[RagSource]:
@@ -211,6 +233,15 @@ def _profile_context_chunk(corpus: list[RagChunk], profile_id: str | None) -> Ra
 
 
 def _render_response(message: str, profile_chunk: RagChunk, hits: list[RagChunk]) -> str:
+    if _matches_social_message(message, _GREETING_MESSAGES):
+        return "你好，我是健康资料整理助手。我会优先根据你的健康档案和已确认知识库回答报告、指标和用药问题；资料不足时会明确告诉你。"
+
+    if _matches_social_message(message, _THANKS_MESSAGES):
+        return "不客气。如果你有报告、指标或药品相关问题，可以继续问我。"
+
+    if _matches_social_message(message, _IDENTITY_MESSAGES):
+        return "我是健康资料整理助手，可以根据你的健康档案、已确认报告、药品记录和知识库，帮你整理健康信息和风险提示；我不能替代医生诊断。"
+
     if _is_urgent(message):
         return (
             "检索到急症相关信号。系统建议优先线下急诊或及时就医，不要继续依赖在线问答。"
@@ -221,16 +252,19 @@ def _render_response(message: str, profile_chunk: RagChunk, hits: list[RagChunk]
         return "当前资料不足，暂时没有检索到足够证据。你可以补充报告、药品信息或健康档案后再试。"
 
     top_titles = "、".join(hit.title for hit in hits[:3])
-    content_parts = [f"我基于你的健康档案和已确认资料检索到以下相关内容：{top_titles}。"]
+    context_label = "知识库和你的已确认资料" if profile_chunk.source_type == "profile" else "公共健康知识库"
+    content_parts = [f"我根据{context_label}，检索到：{top_titles}。"]
 
     if any(keyword in message for keyword in ("血压", "高血压")):
         content_parts.append("结合当前资料，建议继续连续记录血压趋势、保持低盐饮食，并按医嘱复诊；不要自行停药或调整处方药剂量。")
     elif any(keyword in message for keyword in ("药", "用药", "阿司匹林", "禁忌")):
-        content_parts.append("结合药品记录和过敏史，请先确认药品名称、剂量和有效期，再决定是否继续使用；如涉及处方药，请遵医嘱。")
+        medicine_context = "结合你的药品记录和过敏史" if profile_chunk.source_type == "profile" else "结合公共知识库"
+        content_parts.append(f"{medicine_context}，请先确认药品名称、剂量和有效期，再决定是否继续使用；如涉及处方药，请遵医嘱。")
     elif any(keyword in message for keyword in ("报告", "体检", "指标", "血糖", "血脂")):
         content_parts.append("报告解读应优先看异常指标的趋势和复查建议，未确认的 OCR 内容只能视为识别结果，不能直接当作医疗结论。")
     else:
-        content_parts.append("如果你想继续，我可以按‘报告、药品、健康档案、风险提醒’四个维度帮你整理成更清晰的结论。")
+        evidence = "；".join(_truncate(hit.content, 180) for hit in hits[:2])
+        content_parts.append(f"相关资料显示：{evidence}如需结合你的个人情况判断，请补充具体指标、时间和用药信息，并以医生意见为准。")
 
     return "".join(content_parts)
 
@@ -306,7 +340,7 @@ def generate_health_reply(message: str, context: dict[str, Any] | None = None) -
     response_text = _render_response(message, profile_chunk, hits)
     requires_clinician = _is_urgent(message)
 
-    if hits and not requires_clinician:
+    if hits and not requires_clinician and settings.local_llm_enabled:
         try:
             response_text = _call_ollama_chat(message, profile_chunk, hits, context=context)
         except (error.URLError, TimeoutError, OSError, json.JSONDecodeError, RuntimeError, KeyError, TypeError, ValueError):

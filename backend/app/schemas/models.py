@@ -47,9 +47,74 @@ class Medicine(BaseModel):
     id: str = ""
     name: str
     dose: str = ""
+    specification: str = ""
+    manufacturer: str = ""
+    approval_number: str = ""
     stock: int = 0
     expire: str = ""
     risk: str = ""
+    image_path: str = Field(default="", alias="imagePath")
+    ocr_output_dir: str = Field(default="", alias="ocrOutputDir")
+
+    model_config = {"populate_by_name": True}
+
+
+class LeafletImportRequest(BaseModel):
+    generic_name: str
+    brand_name: str = ""
+    dosage_form: str = ""
+    specification: str = ""
+    manufacturer: str = ""
+    approval_number: str = ""
+    published_at: str = ""
+
+
+class LeafletDiscoverRequest(BaseModel):
+    generic_name: str
+    manufacturer: str = ""
+    approval_number: str = ""
+    specification: str = ""
+
+
+class LeafletCandidate(BaseModel):
+    source_type: str
+    source_url: str
+    title: str = ""
+    confidence: float
+    sections_found: list[str] = Field(default_factory=list)
+    sections: dict[str, str] = Field(default_factory=dict)
+    missing_sections: list[str] = Field(default_factory=list)
+    status: str = "candidate"
+    reason: str = ""
+
+
+class LeafletDiscoverResponse(BaseModel):
+    generic_name: str
+    candidates: list[LeafletCandidate] = Field(default_factory=list)
+
+
+class LeafletSection(BaseModel):
+    id: str
+    section_name: str
+    section_order: int
+    content: str
+
+
+class LeafletImportResponse(BaseModel):
+    id: str
+    generic_name: str
+    brand_name: str
+    dosage_form: str
+    specification: str
+    manufacturer: str
+    approval_number: str
+    source_url: str
+    source_type: str
+    raw_file_path: str
+    content_type: str
+    content_hash: str
+    status: str
+    sections: list[LeafletSection] = Field(default_factory=list)
 
 
 class MedicalRecordItem(BaseModel):
@@ -79,6 +144,7 @@ class OcrConfirmRequest(BaseModel):
     stored_file: str = Field(default="", alias="storedFile")
     output_dir: str = Field(default="", alias="outputDir")
     profile_id: str = Field(default="profile_001", alias="profileId")
+    leaflet_candidate: LeafletCandidate | None = Field(default=None, alias="leafletCandidate")
 
     model_config = {"populate_by_name": True}
 
@@ -87,6 +153,8 @@ class OcrConfirmResponse(BaseModel):
     source_type: str = Field(alias="sourceType")
     record: MedicalRecord | None = None
     medicine: Medicine | None = None
+    leaflet_candidate: LeafletCandidate | None = Field(default=None, alias="leafletCandidate")
+    leaflet: LeafletImportResponse | None = None
     message: str
 
     model_config = {"populate_by_name": True}
