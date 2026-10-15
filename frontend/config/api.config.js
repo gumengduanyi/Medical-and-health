@@ -18,7 +18,6 @@ export const API_ENDPOINTS = {
     confirm: '/ocr/confirm'
   },
   upload: {
-    qrcode: '/upload/qrcode',
     photo: '/upload/photo'
   },
   health: {

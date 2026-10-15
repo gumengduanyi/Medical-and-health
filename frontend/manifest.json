@@ -37,11 +37,17 @@
                     "<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>",
                     "<uses-permission android:name=\"android.permission.FLASHLIGHT\"/>",
                     "<uses-feature android:name=\"android.hardware.camera\"/>",
+                    "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>",
                     "<uses-permission android:name=\"android.permission.WRITE_SETTINGS\"/>"
                 ]
             },
             /* ios打包配置 */
-            "ios" : {},
+            "ios" : {
+                "privacyDescription" : {
+                    "NSCameraUsageDescription" : "用于拍摄健康报告、药盒等图片并上传",
+                    "NSPhotoLibraryUsageDescription" : "用于从相册选择健康资料图片并上传"
+                }
+            },
             /* SDK配置 */
             "sdkConfigs" : {}
         }

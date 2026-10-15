@@ -1,8 +1,5 @@
-import io
-
-import qrcode
-from fastapi import APIRouter, File, Request, UploadFile
-from fastapi.responses import HTMLResponse, Response
+from fastapi import APIRouter, File, UploadFile
+from fastapi.responses import HTMLResponse
 
 from app.core.config import settings
 from app.db.models import UploadAssetORM
@@ -19,16 +16,6 @@ body{margin:0;background:#f8fafc;color:#1e293b;font-family:-apple-system,BlinkMa
 </style></head><body><main class="page"><h1 class="title">拍照上传</h1><p class="desc">拍摄或选择健康报告、药盒等图片后上传。</p><div class="actions"><button id="camera">拍照</button><button class="secondary" id="album">从相册选择</button></div><input id="cameraFile" type="file" accept="image/*" capture="environment"><input id="albumFile" type="file" accept="image/*"><img id="preview" alt="图片预览"><div id="status" class="status"></div><a id="link" target="_blank">查看已上传图片</a></main><script>
 const uploadUrl="{api_prefix}/upload/photo",status=document.getElementById("status"),preview=document.getElementById("preview"),link=document.getElementById("link");function upload(file){if(!file)return;preview.src=URL.createObjectURL(file);preview.style.display="block";link.style.display="none";status.className="status";status.textContent="正在上传...";const data=new FormData();data.append("file",file);fetch(uploadUrl,{method:"POST",body:data}).then(async response=>{const body=await response.json();if(!response.ok)throw new Error(body.detail||"上传失败");return body}).then(body=>{status.className="status success";status.textContent="上传成功";link.href=body.url;link.style.display="block"}).catch(error=>{status.className="status error";status.textContent=error.message})}document.getElementById("camera").onclick=()=>document.getElementById("cameraFile").click();document.getElementById("album").onclick=()=>document.getElementById("albumFile").click();document.getElementById("cameraFile").onchange=e=>upload(e.target.files[0]);document.getElementById("albumFile").onchange=e=>upload(e.target.files[0]);
 </script></body></html>"""
-
-
-@router.get("/qrcode")
-def generate_qrcode(request: Request):
-    base_url = settings.public_base_url or str(request.base_url)
-    scan_url = f"{base_url.rstrip('/')}/upload/camera"
-    image = qrcode.make(scan_url, image_factory=qrcode.image.pure.PyPNGImage)
-    buffer = io.BytesIO()
-    image.save(buffer)
-    return Response(content=buffer.getvalue(), media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
 @page_router.get("/upload/camera", response_class=HTMLResponse)

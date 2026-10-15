@@ -10,7 +10,6 @@ class Settings(BaseSettings):
     cors_origins: str = "*"
     database_url: str = "sqlite:///./health_assistant.db"
     upload_dir: str = "./uploads"
-    public_base_url: str = ""
     auth_token_secret: str = "dev-health-assistant-change-me"
     auth_token_ttl_seconds: int = 7 * 24 * 60 * 60
     vector_db_url: str = ""
