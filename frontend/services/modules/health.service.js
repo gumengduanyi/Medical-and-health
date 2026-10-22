@@ -16,3 +16,7 @@ export function getHealthRecords() {
 export function getHealthMetrics() {
   return request({ url: API_ENDPOINTS.health.metrics })
 }
+
+export function submitReport(data) {
+  return request({ url: API_ENDPOINTS.report.create, method: 'POST', data })
+}

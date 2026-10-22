@@ -7,6 +7,7 @@ from app.api.leaflets import router as leaflets_router
 from app.api.medicines import router as medicines_router
 from app.api.ocr import router as ocr_router
 from app.api.ping import router as ping_router
+from app.api.reports import router as reports_router
 from app.api.upload import router as upload_router
 
 api_router = APIRouter()
@@ -16,5 +17,6 @@ api_router.include_router(health_router)
 api_router.include_router(leaflets_router)
 api_router.include_router(medicines_router)
 api_router.include_router(ocr_router)
+api_router.include_router(reports_router)
 api_router.include_router(ai_router)
 api_router.include_router(upload_router)

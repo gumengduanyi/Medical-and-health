@@ -86,6 +86,23 @@ class UploadAssetORM(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class ReportORM(Base):
+    __tablename__ = "reports"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    category: Mapped[str] = mapped_column(String(32), nullable=False, default="体检报告")
+    entry_time: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    report_time: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    remark: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    images: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    files: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    stored_file: Mapped[str] = mapped_column(String(1024), nullable=False, default="")
+    output_dir: Mapped[str] = mapped_column(String(1024), nullable=False, default="")
+    record_id: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class DrugLeafletORM(Base):
     __tablename__ = "drug_leaflets"
 

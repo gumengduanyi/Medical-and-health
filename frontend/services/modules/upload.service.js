@@ -9,3 +9,12 @@ export function uploadPhoto(filePath) {
     loadingText: '上传图片中'
   })
 }
+
+export function uploadReportFile(filePath) {
+  return uploadFile({
+    url: API_ENDPOINTS.upload.file,
+    filePath,
+    useAuth: false,
+    loadingText: '上传文件中'
+  })
+}

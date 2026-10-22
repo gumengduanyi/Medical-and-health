@@ -18,7 +18,11 @@ export const API_ENDPOINTS = {
     confirm: '/ocr/confirm'
   },
   upload: {
-    photo: '/upload/photo'
+    photo: '/upload/photo',
+    file: '/upload/file'
+  },
+  report: {
+    create: '/reports'
   },
   health: {
     profile: '/health/profile',

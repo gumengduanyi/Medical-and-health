@@ -38,3 +38,20 @@ async def upload_photo(file: UploadFile = File(...)):
         )
         session.commit()
     return info
+
+
+@router.post("/file")
+async def upload_report_file(file: UploadFile = File(...)):
+    info = await save_document(file)
+    with SessionLocal() as session:
+        session.add(
+            UploadAssetORM(
+                id=info["filename"],
+                filename=info["filename"],
+                url=info["url"],
+                size=info["size"],
+                content_type=info["contentType"],
+            )
+        )
+        session.commit()
+    return info
