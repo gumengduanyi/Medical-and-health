@@ -48,7 +48,7 @@ Qdrant 只负责检索医学知识和已授权的证据片段，不能替代 MyS
 | OCR | `POST /api/ocr/reports/scan`、`POST /api/ocr/medicines/scan`、`GET /api/ocr/jobs/{job_id}`、`POST /api/ocr/confirm` |
 | AI | `POST /api/ai/chat`、`GET /api/ai/advice` |
 | 登录 | `POST /api/auth/wechat-login`、`GET /api/auth/me`、`POST /api/auth/logout` |
-| 上传 | `GET /api/upload/qrcode`、`POST /api/upload/photo` |
+| 上传 | `POST /api/upload/photo` |
 
 ### 2.4 OCR
 

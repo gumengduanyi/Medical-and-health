@@ -1,13 +1,10 @@
-import io
-
-import qrcode
-from fastapi import APIRouter, File, Request, UploadFile
-from fastapi.responses import HTMLResponse, Response
+from fastapi import APIRouter, File, UploadFile
+from fastapi.responses import HTMLResponse
 
 from app.core.config import settings
 from app.db.models import UploadAssetORM
 from app.db.session import SessionLocal
-from app.services.upload_service import save_image
+from app.services.upload_service import save_document, save_image
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 page_router = APIRouter(tags=["upload"])
@@ -21,16 +18,6 @@ const uploadUrl="{api_prefix}/upload/photo",status=document.getElementById("stat
 </script></body></html>"""
 
 
-@router.get("/qrcode")
-def generate_qrcode(request: Request):
-    base_url = settings.public_base_url or str(request.base_url)
-    scan_url = f"{base_url.rstrip('/')}/upload/camera"
-    image = qrcode.make(scan_url, image_factory=qrcode.image.pure.PyPNGImage)
-    buffer = io.BytesIO()
-    image.save(buffer)
-    return Response(content=buffer.getvalue(), media_type="image/png", headers={"Cache-Control": "no-store"})
-
-
 @page_router.get("/upload/camera", response_class=HTMLResponse)
 def camera_page():
     return HTMLResponse(UPLOAD_PAGE_HTML.replace("{api_prefix}", settings.api_prefix))
@@ -39,6 +26,23 @@ def camera_page():
 @router.post("/photo")
 async def upload_photo(file: UploadFile = File(...)):
     info = await save_image(file)
+    with SessionLocal() as session:
+        session.add(
+            UploadAssetORM(
+                id=info["filename"],
+                filename=info["filename"],
+                url=info["url"],
+                size=info["size"],
+                content_type=info["contentType"],
+            )
+        )
+        session.commit()
+    return info
+
+
+@router.post("/file")
+async def upload_report_file(file: UploadFile = File(...)):
+    info = await save_document(file)
     with SessionLocal() as session:
         session.add(
             UploadAssetORM(

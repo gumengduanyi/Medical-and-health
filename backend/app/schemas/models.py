@@ -189,6 +189,43 @@ class OcrConfirmResponse(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class ReportAttachment(BaseModel):
+    name: str = ""
+    url: str = ""
+    size: int = 0
+
+
+class ReportOcrPayload(BaseModel):
+    fields: list[dict[str, Any]] = Field(default_factory=list)
+    texts: list[str] = Field(default_factory=list)
+    stored_file: str = Field(default="", alias="storedFile")
+    output_dir: str = Field(default="", alias="outputDir")
+
+    model_config = {"populate_by_name": True}
+
+
+class ReportCreateRequest(BaseModel):
+    confirmed: bool = False
+    name: str
+    category: str = "体检报告"
+    entry_time: str = Field(default="", alias="entryTime")
+    report_time: str = Field(default="", alias="reportTime")
+    remark: str = ""
+    images: list[ReportAttachment] = Field(default_factory=list)
+    files: list[ReportAttachment] = Field(default_factory=list)
+    ocr: ReportOcrPayload = Field(default_factory=ReportOcrPayload)
+
+    model_config = {"populate_by_name": True}
+
+
+class ReportCreateResponse(BaseModel):
+    id: str
+    record_id: str = Field(alias="recordId")
+    message: str
+
+    model_config = {"populate_by_name": True}
+
+
 class ChatRequest(BaseModel):
     message: str = ""
     context: dict[str, Any] | None = None

@@ -16,6 +16,23 @@ ALLOWED_CONTENT_TYPES = {
 }
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif"}
 MAX_IMAGE_SIZE = 15 * 1024 * 1024
+MAX_FILE_SIZE = 50 * 1024 * 1024
+ALLOWED_FILE_EXTENSIONS = {
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".txt",
+    ".csv",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".webp",
+    ".heic",
+    ".heif",
+}
 DETECTED_IMAGE_TYPES = {
     "jpeg": ({"image/jpeg"}, ".jpg"),
     "png": ({"image/png"}, ".png"),
@@ -71,4 +88,30 @@ async def save_image(file: UploadFile) -> dict[str, str | int]:
         "url": f"/uploads/{filename}",
         "size": len(content),
         "contentType": detected_content_type,
+    }
+
+
+async def save_document(file: UploadFile) -> dict[str, str | int]:
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="上传的文件为空")
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="文件大小不能超过 50MB")
+
+    original_name = Path(file.filename or "report").name
+    extension = Path(original_name).suffix.lower()
+    if extension not in ALLOWED_FILE_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="仅支持 PDF、Word、Excel、文本或图片文件")
+
+    upload_dir = Path(settings.upload_dir)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{datetime.now():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:8]}{extension}"
+    (upload_dir / filename).write_bytes(content)
+
+    return {
+        "filename": filename,
+        "name": original_name,
+        "url": f"/uploads/{filename}",
+        "size": len(content),
+        "contentType": file.content_type or "application/octet-stream",
     }
