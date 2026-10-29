@@ -1,6 +1,8 @@
 import json
 from uuid import uuid4
 
+from sqlalchemy import select
+
 from app.db.models import ReportORM
 from app.db.session import SessionLocal
 from app.schemas.models import MedicalRecord, MedicalRecordItem, ReportCreateRequest
@@ -59,3 +61,33 @@ def create_report(payload: ReportCreateRequest) -> dict[str, str]:
         session.commit()
 
     return {"id": report_id, "recordId": record.id, "message": "报告已保存"}
+
+
+def _parse_attachments(raw: str) -> list[dict]:
+    try:
+        items = json.loads(raw or "[]")
+    except json.JSONDecodeError:
+        return []
+    return [item for item in items if isinstance(item, dict)]
+
+
+def list_report_entries(category: str | None = None) -> list[dict]:
+    with SessionLocal() as session:
+        statement = select(ReportORM)
+        if category:
+            statement = statement.where(ReportORM.category == category)
+        rows = session.execute(statement.order_by(ReportORM.created_at.desc())).scalars().all()
+
+    return [
+        {
+            "id": row.id,
+            "name": row.name,
+            "category": row.category,
+            "entryTime": row.entry_time,
+            "reportTime": row.report_time,
+            "images": _parse_attachments(row.images),
+            "files": _parse_attachments(row.files),
+            "createdAt": row.created_at.isoformat() if row.created_at else "",
+        }
+        for row in rows
+    ]

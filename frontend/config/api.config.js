@@ -22,6 +22,7 @@ export const API_ENDPOINTS = {
     file: '/upload/file'
   },
   report: {
+    list: '/reports',
     create: '/reports'
   },
   health: {

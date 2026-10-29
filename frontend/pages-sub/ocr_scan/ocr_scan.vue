@@ -22,33 +22,23 @@
           </view>
           <view class="form-row">
             <text class="form-label">类别</text>
-            <picker :range="categories" :value="categoryIndex" @change="onCategoryChange">
-              <view class="form-value-wrap">
-                <text class="form-value">{{ categories[categoryIndex] }}</text>
-                <text class="form-arrow">›</text>
-              </view>
-            </picker>
+            <view class="form-value-wrap" @click="openCategoryPicker">
+              <text class="form-value">{{ categories[categoryIndex] }}</text>
+              <text class="form-arrow">›</text>
+            </view>
           </view>
           <view class="form-row">
             <text class="form-label">录入时间</text>
             <view class="datetime-row">
-              <picker mode="date" :value="form.entryDate" @change="form.entryDate = $event.detail.value">
-                <view class="datetime-pill">{{ form.entryDate }}</view>
-              </picker>
-              <picker mode="time" :value="form.entryTime" @change="form.entryTime = $event.detail.value">
-                <view class="datetime-pill">{{ form.entryTime }}</view>
-              </picker>
+              <view class="datetime-pill" @click="openDatePicker('entryDate')">{{ form.entryDate }}</view>
+              <view class="datetime-pill" @click="openTimePicker('entryTime')">{{ form.entryTime }}</view>
             </view>
           </view>
           <view class="form-row">
             <text class="form-label">报告时间</text>
             <view class="datetime-row">
-              <picker mode="date" :value="form.reportDate" @change="form.reportDate = $event.detail.value">
-                <view class="datetime-pill">{{ form.reportDate }}</view>
-              </picker>
-              <picker mode="time" :value="form.reportTime" @change="form.reportTime = $event.detail.value">
-                <view class="datetime-pill">{{ form.reportTime }}</view>
-              </picker>
+              <view class="datetime-pill" @click="openDatePicker('reportDate')">{{ form.reportDate }}</view>
+              <view class="datetime-pill" @click="openTimePicker('reportTime')">{{ form.reportTime }}</view>
             </view>
           </view>
         </view>
@@ -181,6 +171,36 @@
       </view>
     </view>
 
+    <view v-if="picker.visible" class="picker-mask" @click="closePicker">
+      <view class="picker-sheet" @click.stop>
+        <view class="picker-header">
+          <text class="picker-cancel" @click="closePicker">取消</text>
+          <text class="picker-title">{{ picker.title }}</text>
+          <text class="picker-confirm" @click="confirmPicker">确定</text>
+        </view>
+        <view class="picker-columns">
+          <view v-for="(column, columnIndex) in picker.columns" :key="`${pickerToken}_${columnIndex}`" class="wheel-column-wrap">
+            <scroll-view
+              class="wheel-column"
+              scroll-y
+              :scroll-top="wheelTops[columnIndex]"
+              :scroll-with-animation="wheelAnimating"
+              @scroll="onWheelScroll(columnIndex, $event)"
+            >
+              <view class="wheel-pad"></view>
+              <view
+                v-for="(option, optionIndex) in column"
+                :key="option"
+                class="wheel-item"
+                :class="{ active: picker.indexes[columnIndex] === optionIndex }"
+              >{{ option }}</view>
+              <view class="wheel-pad"></view>
+            </scroll-view>
+          </view>
+        </view>
+      </view>
+    </view>
+
     <view v-if="!isMedicineMode || scanResult" class="result-action-bar">
       <template v-if="isMedicineMode">
         <view class="action-btn secondary" @click="chooseAndScan('medicine', '药品信息')">重新识别</view>
@@ -239,8 +259,23 @@ export default {
         reportTime: now.time
       },
       images: [],
-      files: []
+      files: [],
+      pickerToken: 0,
+      wheelTops: [0, 0, 0],
+      wheelAnimating: false,
+      picker: {
+        visible: false,
+        mode: 'selector',
+        title: '',
+        target: '',
+        columns: [],
+        indexes: [0, 0, 0]
+      }
     }
+  },
+  created() {
+    this.itemHeightPx = uni.upx2px(92)
+    this.snapTimers = {}
   },
   onLoad(options = {}) {
     const requestedMode = options.mode || this.mode
@@ -264,9 +299,116 @@ export default {
   },
   methods: {
     goBack() { uni.navigateBack() },
-    onCategoryChange(event) {
-      this.categoryIndex = Number(event.detail.value)
-      this.sourceLabel = this.categories[this.categoryIndex]
+    openCategoryPicker() {
+      this.pickerToken += 1
+      this.picker = {
+        visible: true,
+        mode: 'selector',
+        title: '选择类别',
+        target: 'category',
+        columns: [this.categories],
+        indexes: [this.categoryIndex, 0, 0]
+      }
+      this.initWheelPosition()
+    },
+    openDatePicker(target) {
+      const value = target === 'entryDate' ? this.form.entryDate : this.form.reportDate
+      const [year, month, day] = String(value).split('-').map(Number)
+      const currentYear = new Date().getFullYear()
+      const years = []
+      for (let item = currentYear - 20; item <= currentYear; item += 1) years.push(String(item))
+      const months = Array.from({ length: 12 }, (_, index) => pad(index + 1))
+      const yearIndex = Math.max(years.indexOf(String(year)), 0)
+      const monthIndex = Math.max(months.indexOf(pad(month || 1)), 0)
+      const days = this.buildDays(Number(years[yearIndex]), Number(months[monthIndex]))
+      const dayIndex = Math.min(Math.max((day || 1) - 1, 0), days.length - 1)
+      this.pickerToken += 1
+      this.picker = {
+        visible: true,
+        mode: 'date',
+        title: '选择日期',
+        target,
+        columns: [years, months, days],
+        indexes: [yearIndex, monthIndex, dayIndex]
+      }
+      this.initWheelPosition()
+    },
+    openTimePicker(target) {
+      const value = target === 'entryTime' ? this.form.entryTime : this.form.reportTime
+      const [hour, minute] = String(value).split(':').map(Number)
+      const hours = Array.from({ length: 24 }, (_, index) => pad(index))
+      const minutes = Array.from({ length: 60 }, (_, index) => pad(index))
+      this.pickerToken += 1
+      this.picker = {
+        visible: true,
+        mode: 'time',
+        title: '选择时间',
+        target,
+        columns: [hours, minutes],
+        indexes: [Math.min(Math.max(hour || 0, 0), 23), Math.min(Math.max(minute || 0, 0), 59)]
+      }
+      this.initWheelPosition()
+    },
+    buildDays(year, month) {
+      const total = new Date(year, month, 0).getDate()
+      return Array.from({ length: total }, (_, index) => pad(index + 1))
+    },
+    onWheelScroll(columnIndex, event) {
+      const column = this.picker.columns[columnIndex] || []
+      if (!column.length) return
+      const scrollTop = (event && event.detail ? event.detail.scrollTop : 0) || 0
+      const index = Math.min(Math.max(Math.round(scrollTop / this.itemHeightPx), 0), column.length - 1)
+      if (index !== this.picker.indexes[columnIndex]) this.applyWheelIndex(columnIndex, index)
+      if (this.snapTimers[columnIndex]) clearTimeout(this.snapTimers[columnIndex])
+      this.snapTimers[columnIndex] = setTimeout(() => {
+        this.wheelAnimating = true
+        this.wheelTops[columnIndex] = this.picker.indexes[columnIndex] * this.itemHeightPx
+      }, 160)
+    },
+    applyWheelIndex(columnIndex, index) {
+      const indexes = this.picker.indexes.slice()
+      indexes[columnIndex] = index
+      if (this.picker.mode === 'date' && columnIndex < 2) {
+        const year = Number(this.picker.columns[0][indexes[0]])
+        const month = Number(this.picker.columns[1][indexes[1]])
+        const days = this.buildDays(year, month)
+        if (days.length !== this.picker.columns[2].length) {
+          this.picker.columns = [this.picker.columns[0], this.picker.columns[1], days]
+          indexes[2] = Math.min(indexes[2], days.length - 1)
+          this.$nextTick(() => {
+            this.wheelTops[2] = indexes[2] * this.itemHeightPx
+          })
+        }
+      }
+      this.picker.indexes = indexes
+    },
+    initWheelPosition() {
+      this.wheelAnimating = false
+      this.wheelTops = [0, 0, 0]
+      this.$nextTick(() => {
+        setTimeout(() => {
+          this.picker.indexes.forEach((index, columnIndex) => {
+            this.wheelTops[columnIndex] = index * this.itemHeightPx
+          })
+        }, 30)
+      })
+    },
+    confirmPicker() {
+      const { target, columns, indexes } = this.picker
+      if (target === 'category') {
+        this.categoryIndex = indexes[0]
+        this.sourceLabel = this.categories[this.categoryIndex]
+      } else if (target === 'entryDate' || target === 'reportDate') {
+        this.form[target] = `${columns[0][indexes[0]]}-${columns[1][indexes[1]]}-${columns[2][indexes[2]]}`
+      } else {
+        this.form[target] = `${columns[0][indexes[0]]}:${columns[1][indexes[1]]}`
+      }
+      this.closePicker()
+    },
+    closePicker() {
+      Object.keys(this.snapTimers).forEach((key) => clearTimeout(this.snapTimers[key]))
+      this.snapTimers = {}
+      this.picker.visible = false
     },
     pickImage(sourceType) {
       uni.chooseImage({
@@ -547,10 +689,24 @@ export default {
 .form-input { flex: 1; height: 88rpx; margin-left: 24rpx; text-align: right; font-size: 27rpx; color: #17231F; }
 .form-placeholder { color: #A8B4AE; }
 .form-value-wrap { display: flex; align-items: center; gap: 8rpx; }
-.form-value { font-size: 27rpx; color: #17231F; }
+.form-value { font-size: 34rpx; color: #17231F; font-weight: 600; }
 .form-arrow { color: #A8B4AE; font-size: 32rpx; line-height: 1; }
 .datetime-row { display: flex; align-items: center; gap: 12rpx; }
-.datetime-pill { padding: 10rpx 18rpx; border-radius: 12rpx; background: #F0FAF6; color: #0E7F72; font-size: 25rpx; }
+.datetime-pill { padding: 14rpx 24rpx; border-radius: 12rpx; background: #F0FAF6; color: #0E7F72; font-size: 34rpx; font-weight: 600; }
+
+.picker-mask { position: fixed; left: 0; right: 0; top: 0; bottom: 0; z-index: 1200; background: rgba(23, 35, 31, 0.45); display: flex; align-items: flex-end; }
+.picker-sheet { width: 100%; background: #FFFFFF; border-radius: 28rpx 28rpx 0 0; padding-bottom: calc(20rpx + env(safe-area-inset-bottom)); animation: sheet-up 0.22s ease-out; }
+.picker-header { display: flex; align-items: center; justify-content: space-between; padding: 26rpx 32rpx; border-bottom: 1rpx solid #EEF4F1; }
+.picker-title { font-size: 32rpx; font-weight: 700; color: #17231F; }
+.picker-cancel { font-size: 30rpx; color: #71817A; padding: 6rpx 12rpx; }
+.picker-confirm { font-size: 30rpx; color: #0E9F8E; font-weight: 700; padding: 6rpx 12rpx; }
+.picker-columns { display: flex; height: 460rpx; }
+.wheel-column-wrap { flex: 1; height: 100%; overflow: hidden; }
+.wheel-column { width: 100%; height: 460rpx; }
+.wheel-pad { height: 184rpx; }
+.wheel-item { height: 92rpx; line-height: 92rpx; text-align: center; font-size: 38rpx; color: #8A9992; }
+.wheel-item.active { color: #0E9F8E; font-weight: 700; font-size: 42rpx; }
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
 .pick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20rpx; margin-top: 24rpx; }
 .pick-block { height: 180rpx; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16rpx; border-radius: 16rpx; background: #F7FBF9; border: 1rpx dashed #BFDCD2; }

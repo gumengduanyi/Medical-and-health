@@ -50,6 +50,10 @@
           "style": { "navigationStyle": "custom", "navigationBarTextStyle": "white" }
         },
         {
+          "path": "report_category/report_category",
+          "style": { "navigationStyle": "custom", "navigationBarTextStyle": "white" }
+        },
+        {
           "path": "medicine_form/medicine_form",
           "style": { "navigationStyle": "custom", "navigationBarTextStyle": "white" }
         },

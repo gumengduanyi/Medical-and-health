@@ -20,3 +20,10 @@ export function getHealthMetrics() {
 export function submitReport(data) {
   return request({ url: API_ENDPOINTS.report.create, method: 'POST', data })
 }
+
+export function getReports(category) {
+  return request({
+    url: API_ENDPOINTS.report.list,
+    data: category ? { category } : {}
+  })
+}

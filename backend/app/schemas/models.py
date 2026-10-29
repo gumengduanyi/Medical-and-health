@@ -196,6 +196,19 @@ class ReportCreateResponse(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class ReportSummary(BaseModel):
+    id: str
+    name: str
+    category: str
+    entry_time: str = Field(default="", alias="entryTime")
+    report_time: str = Field(default="", alias="reportTime")
+    images: list[ReportAttachment] = Field(default_factory=list)
+    files: list[ReportAttachment] = Field(default_factory=list)
+    created_at: str = Field(default="", alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
 class ChatRequest(BaseModel):
     message: str = ""
     context: dict[str, Any] | None = None
