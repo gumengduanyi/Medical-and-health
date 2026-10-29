@@ -57,18 +57,22 @@
           </view>
           <view v-if="!isMedicineMode" class="table-row" :class="{ warning: item.status === 'warning' }" v-for="(item, index) in scanResult" :key="item.label + index">
             <text class="table-cell name">{{ item.label }}</text>
-            <text class="table-cell value">{{ item.value }}</text>
-            <text class="table-cell unit">{{ item.unit || '-' }}</text>
+            <input class="table-cell value" v-model="item.value" />
+            <input class="table-cell unit" v-model="item.unit" />
             <text class="table-cell reference">{{ item.reference || '-' }}</text>
             <text class="table-cell status" :class="item.status">{{ item.status === 'warning' ? '需关注' : item.status === 'pending' ? '待确认' : '正常' }}</text>
           </view>
           <view v-else class="table-row medicine-table-row" v-for="(item, index) in scanResult" :key="item.label + index">
             <text class="table-cell medicine-name">{{ item.label }}</text>
-            <text class="table-cell medicine-value">{{ item.value }}</text>
+            <input class="table-cell medicine-value" v-model="item.value" />
             <text class="table-cell medicine-status" :class="item.status">{{ item.status === 'pending' ? '待确认' : '已识别' }}</text>
           </view>
         </view>
       </scroll-view>
+      <view v-if="!isMedicineMode" class="result-meta">
+        <text>检查日期</text>
+        <input v-model="recordDate" placeholder="YYYY-MM-DD，请按报告填写" />
+      </view>
       <view class="notice-box">{{ noticeText }}</view>
     </view>
 
@@ -85,6 +89,12 @@
         <text class="leaflet-section-content">{{ leafletCandidate.sections && leafletCandidate.sections[name] ? leafletCandidate.sections[name] : '未找到该章节' }}</text>
       </view>
       <view class="notice-box leaflet-notice">{{ leafletCandidate.reason }}</view>
+      <view v-if="leafletCandidate.status === 'candidate'" class="leaflet-import-action" @click="importLeaflet">
+        {{ isImportingLeaflet ? '导入中...' : '单独导入说明书' }}
+      </view>
+    </view>
+    <view v-if="isMedicineMode && isDiscoveringLeaflet" class="leaflet-card leaflet-loading-card">
+      <text class="leaflet-source">正在通过浏览器读取百度百科公开页面，请稍候；不会绕过安全验证。</text>
     </view>
     </view>
 
@@ -96,7 +106,9 @@
 </template>
 
 <script>
+import { verifyFields } from '@/services/modules/workflow.service.js'
 import { confirmOcrResult, scanMedicine, scanReport } from '@/services/modules/ocr.service.js'
+import { discoverLeaflet, importBaikeLeaflet } from '@/services/modules/leaflet.service.js'
 
 export default {
   props: {
@@ -104,6 +116,7 @@ export default {
   },
   data() {
     return {
+      recordDate: '',
       pageMode: this.mode === 'medicine' ? 'medicine' : 'report',
       isSubmitting: false,
       sourceType: this.mode === 'medicine' ? 'medicine' : 'report',
@@ -114,7 +127,9 @@ export default {
       rawTexts: [],
       storedFile: '',
       outputDir: '',
-      leafletCandidate: null
+      leafletCandidate: null,
+      isImportingLeaflet: false,
+      isDiscoveringLeaflet: false
     }
   },
   onLoad(options = {}) {
@@ -163,7 +178,8 @@ export default {
       this.rawTexts = Array.isArray(result.texts) ? result.texts : []
       this.storedFile = result.storedFile || ''
       this.outputDir = result.outputDir || ''
-      this.leafletCandidate = result.leafletCandidate || null
+      this.leafletCandidate = null
+      this.recordDate = this.rawFields.find(field => ['检查日期', '报告日期', '检测日期'].includes(field.label))?.value || ''
       this.scanResult = this.rawFields.map((item) => ({
         label: item.label || item.name || '字段',
         value: item.value || '',
@@ -180,17 +196,56 @@ export default {
           status: 'pending'
         }))
       }
+      if (this.isMedicineMode) this.discoverLeafletCandidate()
+    },
+    async discoverLeafletCandidate() {
+      const genericName = this.rawFields.find((field) => ['药品名称', '通用名称', '商品名称'].includes(field.label))?.value
+      if (!genericName || this.isDiscoveringLeaflet) return
+      this.isDiscoveringLeaflet = true
+      try {
+        const result = await discoverLeaflet({
+          generic_name: genericName,
+          manufacturer: this.rawFields.find((field) => ['生产企业', '生产厂家', '上市许可持有人', '制造商'].includes(field.label))?.value || '',
+          specification: this.rawFields.find((field) => field.label === '规格')?.value || '',
+          approval_number: this.rawFields.find((field) => field.label === '批准文号')?.value || ''
+        })
+        this.leafletCandidate = result.candidates?.[0] || null
+      } catch (error) {
+        this.leafletCandidate = {
+          source_type: 'baike_browser_agent',
+          source_url: '',
+          title: genericName,
+          confidence: 0,
+          status: 'manual_required',
+          reason: `OCR 已完成，但说明书查找失败：${error?.message || '请稍后重试'}`
+        }
+      } finally {
+        this.isDiscoveringLeaflet = false
+      }
     },
     async saveResult() {
       if (this.isSubmitting) return
+      try {
+        const check = await verifyFields(this.scanResult || [])
+        const content = check.issues.length
+          ? check.issues.map(issue => `第 ${issue.index + 1} 项：${issue.message}`).join('\n') + '\n确认以上内容无误后归档？'
+          : '请确认字段、单位和检查日期与原件一致。'
+        const accepted = await new Promise(resolve => uni.showModal({ title: '核对归档资料', content, success: result => resolve(result.confirm), fail: () => resolve(false) }))
+        if (!accepted) return
+      } catch (error) {
+        uni.showToast({ title: error?.message || '资料核对失败', icon: 'none' })
+        return
+      }
       this.isSubmitting = true
       uni.showLoading({ title: '入库中' })
       try {
         const title = this.sourceType === 'medicine' ? '药品信息确认' : '体检报告确认'
         await confirmOcrResult({
+          confirmed: true,
+          recordDate: this.recordDate,
           sourceType: this.sourceType,
           title,
-          fields: this.rawFields,
+          fields: this.scanResult,
           texts: this.rawTexts,
           storedFile: this.storedFile,
           outputDir: this.outputDir,
@@ -203,6 +258,31 @@ export default {
       } finally {
         this.isSubmitting = false
         uni.hideLoading()
+      }
+    },
+    async importLeaflet() {
+      if (this.isImportingLeaflet || !this.leafletCandidate || this.leafletCandidate.status !== 'candidate') return
+      this.isImportingLeaflet = true
+      try {
+        await importBaikeLeaflet({
+          generic_name: this.leafletCandidate.title,
+          candidate_id: this.leafletCandidate.candidate_id,
+          content_hash: this.leafletCandidate.content_hash,
+          confirmed: true,
+          manufacturer: this.rawFields.find((field) => ['生产企业', '生产厂家', '上市许可持有人', '制造商'].includes(field.label))?.value || '',
+          specification: this.rawFields.find((field) => field.label === '规格')?.value || '',
+          approval_number: this.rawFields.find((field) => field.label === '批准文号')?.value || ''
+        })
+        this.leafletCandidate = {
+          ...this.leafletCandidate,
+          status: 'pending_review',
+          reason: '说明书已导入，等待审核后才会进入健康知识库。'
+        }
+        uni.showToast({ title: '说明书已待审核', icon: 'success' })
+      } catch (error) {
+        uni.showToast({ title: error?.message || '说明书导入失败', icon: 'none' })
+      } finally {
+        this.isImportingLeaflet = false
       }
     }
   }
@@ -238,6 +318,7 @@ export default {
 .leaflet-section { margin-top: 22rpx; padding-top: 20rpx; border-top: 1rpx solid #E8F1ED; }
 .leaflet-section-title { display: block; color: #0E7F72; font-size: 27rpx; font-weight: 700; }
 .leaflet-section-content { display: block; margin-top: 10rpx; color: #50605A; font-size: 25rpx; line-height: 1.6; white-space: pre-wrap; }
+.leaflet-import-action { margin-top: 20rpx; height: 76rpx; display: flex; align-items: center; justify-content: center; border-radius: 14rpx; background: #0E9F8E; color: #FFFFFF; font-size: 26rpx; font-weight: 700; }
 .leaflet-notice { margin-top: 22rpx; }.confidence.blocked { background: #FFF7ED; color: #B96B25; }
 .result-action-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 998; display: flex; gap: 16rpx; padding: 18rpx 32rpx calc(18rpx + env(safe-area-inset-bottom)); background: rgba(255, 255, 255, 0.96); border-top: 1rpx solid #DDE7E1; box-shadow: 0 -8rpx 24rpx rgba(31, 72, 55, 0.08); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
 .action-btn { flex: 1; height: 84rpx; display: flex; align-items: center; justify-content: center; border-radius: 14rpx; font-size: 28rpx; font-weight: 700; }.action-btn.secondary { color: #50605A; background: #F4F7F5; border: 1rpx solid #DDE7E1; }.action-btn.primary { color: #FFFFFF; background: #0E9F8E; border: 1rpx solid #0E9F8E; }

@@ -11,7 +11,7 @@ from app.schemas.models import ChatResponse, RagSource
 from app.core.config import settings
 from app.services import data_store
 from app.services.knowledge_base import get_knowledge_documents
-from app.services import leaflet_service, reranker_service, vector_service
+from app.services import leaflet_service, reranker_service, vector_service, web_search_service
 
 
 @dataclass(frozen=True)
@@ -28,14 +28,47 @@ _URGENT_KEYWORDS = ("胸痛", "呼吸困难", "晕厥", "意识模糊", "大出�
 _GREETING_MESSAGES = ("你好", "您好", "嗨", "哈喽", "在吗", "早上好", "中午好", "下午好", "晚上好")
 _THANKS_MESSAGES = ("谢谢", "感谢", "辛苦了", "多谢")
 _IDENTITY_MESSAGES = ("你是谁", "你能做什么", "你能干什么", "你可以做什么", "介绍一下自己")
+_PROFILE_QUERY_TERMS = ("健康档案", "个人资料", "我的资料", "我的档案", "个人信息")
+_GENERIC_QUERY_TERMS = {
+    "最近",
+    "怎么",
+    "怎么办",
+    "为什么",
+    "我的",
+    "会不会",
+    "是否",
+    "影响",
+    "情况",
+    "问题",
+    "介绍",
+    "告诉",
+}
+_WEB_SEARCH_TERMS = (
+    "最新",
+    "近期",
+    "指南",
+    "官方",
+    "说明书",
+    "政策",
+    "现在",
+    "目前",
+    "联网",
+    "网上",
+    "搜索",
+)
 _OLLAMA_TIMEOUT_SECONDS = 120
-_SYSTEM_PROMPT = """你是医疗健康资料整理助手，只能基于用户健康档案和检索证据回答。
-规则：
-1. 证据不足时必须说明资料不足，不要猜测。
-2. 不做诊断，不开处方，不建议用户自行停药、换药或调整剂量。
-3. 涉及胸痛、呼吸困难、晕厥、意识模糊、大出血、呕血、黑便等急症信号时，必须建议及时线下就医或急诊。
-4. 回答要简洁、中文、面向普通用户，并明确提示“以医生意见为准”。
-5. 每个医学结论都要能对应到给定证据。"""
+_LOCAL_HTTP_OPENER = request.build_opener(request.ProxyHandler({}))
+_SYSTEM_PROMPT = f"""你是{settings.assistant_name}，{settings.assistant_role}。
+你的服务范围包括：{settings.assistant_scope}，也包括一般性的健康知识交流。
+请像正常的中文助手一样理解上下文、自然回答，不要机械复述“检索证据”或固定模板。
+你必须遵守以下边界：
+1. 一般健康知识可以根据你的通用知识解释；涉及用户个人健康档案、检查结果、药品记录时，只能使用给定资料中的事实，不能猜测或补全。
+2. 如果项目资料不足，直接说明“项目资料中没有找到相关信息”，然后可以补充一般健康常识，并明确这不是对用户个人情况的判断。
+3. 不得虚构药品名称、剂量、禁忌、检查结果、指南、来源、日期或网页内容。
+4. 不做确定性诊断，不开处方，不建议用户自行停药、换药或调整剂量。
+5. 涉及胸痛、呼吸困难、晕厥、意识模糊、大出血、呕血、黑便等急症信号时，必须建议及时线下就医或急诊。
+6. 回答要自然、简洁、中文、面向普通用户；涉及医学判断时必须明确“以医生意见为准”。
+7. 不要声称自己查阅了互联网、实时资料或医生意见，除非这些内容确实出现在给定证据中。"""
 
 
 def _build_chinese_ngrams(fragment: str) -> list[str]:
@@ -71,6 +104,50 @@ def _score(query: str, content: str) -> float:
     overlap = sum(min(count, content_tokens.get(token, 0)) for token, count in query_tokens.items())
     exact_bonus = sum(1.5 for token in query_tokens if len(token) >= 2 and token in content)
     return float(overlap + exact_bonus)
+
+
+def _is_profile_query(message: str) -> bool:
+    return any(term in message for term in _PROFILE_QUERY_TERMS)
+
+
+def _has_meaningful_overlap(message: str, chunk: RagChunk) -> bool:
+    if _is_profile_query(message):
+        return chunk.source_type == "profile"
+
+    query_terms = {
+        token
+        for token in _tokenize(message)
+        if len(token) >= 2 and token not in _GENERIC_QUERY_TERMS
+    }
+    if not query_terms:
+        return False
+
+    content_terms = set(_tokenize(f"{chunk.title} {chunk.content}"))
+    overlap = query_terms & content_terms
+    if len(overlap) >= 2:
+        return True
+
+    # A single exact medicine or named topic is sufficient; generic terms such
+    # as "血压" alone must not expose unrelated personal or knowledge records.
+    named_terms = {
+        token
+        for token in overlap
+        if token in chunk.title or token in chunk.metadata.get("tags", [])
+    }
+    return len(named_terms) >= 1 and any(len(token) >= 3 for token in named_terms)
+
+
+def _chunk_score(message: str, chunk: RagChunk) -> float:
+    return _score(message, f"{chunk.title}；{chunk.content}")
+
+
+def _filter_relevant_chunks(message: str, chunks: list[RagChunk]) -> list[RagChunk]:
+    return [
+        chunk
+        for chunk in chunks
+        if _chunk_score(message, chunk) >= settings.rag_min_score
+        and _has_meaningful_overlap(message, chunk)
+    ]
 
 
 def _truncate(text: str, limit: int = 140) -> str:
@@ -169,6 +246,12 @@ def _is_urgent(message: str) -> bool:
     return any(keyword in message for keyword in _URGENT_KEYWORDS)
 
 
+def _should_web_search(message: str) -> bool:
+    if _is_profile_query(message) or _is_urgent(message):
+        return False
+    return any(term in message for term in _WEB_SEARCH_TERMS)
+
+
 def _matches_social_message(message: str, candidates: tuple[str, ...]) -> bool:
     clean_message = re.sub(r"[，。！？、,.!?\s]", "", message).lower()
     return clean_message in candidates
@@ -205,8 +288,8 @@ def _vector_hits_to_chunks(hits: list[vector_service.VectorHit]) -> list[RagChun
 
 def retrieve_relevant_chunks(message: str, corpus: list[RagChunk], limit: int | None = None) -> list[RagChunk]:
     result_limit = limit or settings.rag_top_k
-    ranked = sorted(corpus, key=lambda chunk: (_score(message, chunk.content), len(chunk.content)), reverse=True)
-    filtered = [chunk for chunk in ranked if _score(message, chunk.content) >= settings.rag_min_score]
+    ranked = sorted(corpus, key=lambda chunk: (_chunk_score(message, chunk), len(chunk.content)), reverse=True)
+    filtered = _filter_relevant_chunks(message, ranked)
     return filtered[:result_limit]
 
 
@@ -232,24 +315,28 @@ def _profile_context_chunk(corpus: list[RagChunk], profile_id: str | None) -> Ra
     )
 
 
-def _render_response(message: str, profile_chunk: RagChunk, hits: list[RagChunk]) -> str:
+def _render_response(message: str, profile_chunk: RagChunk, hits: list[RagChunk], web_sources: list[RagSource] | None = None) -> str:
     if _matches_social_message(message, _GREETING_MESSAGES):
-        return "你好，我是健康资料整理助手。我会优先根据你的健康档案和已确认知识库回答报告、指标和用药问题；资料不足时会明确告诉你。"
+        return f"你好，我是{settings.assistant_name}，专门整理你的健康档案、报告、药品记录和项目知识库。资料不足时，我会明确告诉你。"
 
     if _matches_social_message(message, _THANKS_MESSAGES):
         return "不客气。如果你有报告、指标或药品相关问题，可以继续问我。"
 
     if _matches_social_message(message, _IDENTITY_MESSAGES):
-        return "我是健康资料整理助手，可以根据你的健康档案、已确认报告、药品记录和知识库，帮你整理健康信息和风险提示；我不能替代医生诊断。"
+        return f"我是{settings.assistant_name}，{settings.assistant_role}。我可以根据{settings.assistant_scope}回答健康问题、整理证据和提示风险，但不能替代医生诊断。"
 
     if _is_urgent(message):
         return (
-            "检索到急症相关信号。系统建议优先线下急诊或及时就医，不要继续依赖在线问答。"
-            "如果你愿意，我可以继续帮你整理当前资料中的风险点。"
+            "你描述的情况可能需要立即处理。请现在停止在线咨询，尽快拨打 120 或前往最近的急诊；"
+            "如果身边有人，请让对方陪同，不要独自驾车。"
         )
 
-    if not hits:
-        return "当前资料不足，暂时没有检索到足够证据。你可以补充报告、药品信息或健康档案后再试。"
+    if not hits and not web_sources:
+        return ""
+
+    if web_sources and not hits:
+        source_titles = "、".join(source.title for source in web_sources[:3])
+        return f"我查到了一些相关公开资料，包括：{source_titles}。这些内容仅供健康信息参考，涉及个人情况或用药决定时，请以医生意见为准。"
 
     top_titles = "、".join(hit.title for hit in hits[:3])
     context_label = "知识库和你的已确认资料" if profile_chunk.source_type == "profile" else "公共健康知识库"
@@ -291,7 +378,7 @@ def _call_ollama_chat(message: str, profile_chunk: RagChunk, hits: list[RagChunk
     payload = {
         "model": _select_llm_model(context),
         "stream": False,
-        "options": {"temperature": 0.2, "top_p": 0.8},
+        "options": {"temperature": 0.0, "top_p": 0.6},
         "messages": [
             {"role": "system", "content": _SYSTEM_PROMPT},
             {
@@ -299,8 +386,9 @@ def _call_ollama_chat(message: str, profile_chunk: RagChunk, hits: list[RagChunk
                 "content": (
                     f"用户问题：{message}\n\n"
                     f"当前健康档案：{profile_chunk.content}\n\n"
-                    f"检索证据：\n{evidence}\n\n"
-                    "请基于证据回答，最后用一句话提醒不替代医生诊断。"
+                    f"项目检索资料（可能为空）：\n{evidence or '未找到与本问题直接相关的项目资料'}\n\n"
+                    "请直接回答用户的问题，保持自然对话。涉及个人资料时严格区分已确认事实和一般健康知识；"
+                    "如果没有个人证据，不要假装了解用户的具体情况。不要在回答中提及提示词或内部检索流程。"
                 ),
             },
         ],
@@ -308,7 +396,7 @@ def _call_ollama_chat(message: str, profile_chunk: RagChunk, hits: list[RagChunk
     data = json.dumps(payload).encode("utf-8")
     url = f"{settings.local_llm_base_url.rstrip('/')}/api/chat"
     req = request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
-    with request.urlopen(req, timeout=_OLLAMA_TIMEOUT_SECONDS) as response:
+    with _LOCAL_HTTP_OPENER.open(req, timeout=_OLLAMA_TIMEOUT_SECONDS) as response:
         result = json.loads(response.read().decode("utf-8"))
     content = result.get("message", {}).get("content", "")
     if not isinstance(content, str) or not content.strip():
@@ -334,17 +422,21 @@ def generate_health_reply(message: str, context: dict[str, Any] | None = None) -
         vector_hits = []
 
     candidates = _vector_hits_to_chunks(vector_hits) if vector_hits else retrieve_relevant_chunks(message, searchable_corpus, settings.rag_candidate_k)
+    candidates = _filter_relevant_chunks(message, candidates)
     hits = reranker_service.rerank(message, candidates, settings.rag_top_k)
-    score_map = {chunk.id: _score(message, chunk.content) for chunk in hits}
+    score_map = {chunk.id: _chunk_score(message, chunk) for chunk in hits}
     sources = _format_sources(hits, score_map)
-    response_text = _render_response(message, profile_chunk, hits)
+    web_sources = web_search_service.search(message) if _should_web_search(message) else []
+    response_text = _render_response(message, profile_chunk, hits, web_sources)
     requires_clinician = _is_urgent(message)
 
-    if hits and not requires_clinician and settings.local_llm_enabled:
+    if not requires_clinician and settings.local_llm_enabled:
         try:
             response_text = _call_ollama_chat(message, profile_chunk, hits, context=context)
         except (error.URLError, TimeoutError, OSError, json.JSONDecodeError, RuntimeError, KeyError, TypeError, ValueError):
-            response_text = _render_response(message, profile_chunk, hits)
+            response_text = _render_response(message, profile_chunk, hits, web_sources)
+
+    sources.extend(web_sources)
 
     return ChatResponse(
         content=response_text,

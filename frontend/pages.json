@@ -22,6 +22,20 @@
       }
     },
     {
+      "path": "pages/report_library/report_library",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/visit_records/visit_records",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
       "path": "pages/mine/mine",
       "style": { 
         "navigationStyle": "custom",

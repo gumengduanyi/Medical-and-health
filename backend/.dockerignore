@@ -1,0 +1,9 @@
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.env
+health_assistant.db
+uploads/ocr
+uploads/leaflets
+runtime/leaflet-browser

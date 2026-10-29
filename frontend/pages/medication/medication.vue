@@ -8,14 +8,13 @@
     </view>
     
     <view class="page-content">
+    <view v-if="cabinetFindings.length" class="medicine-card">
+      <text>药箱核查（库存阈值 3，临期 30 天）</text>
+      <view v-for="(finding, index) in cabinetFindings" :key="index">{{ finding.name }}：{{ finding.message }}</view>
+    </view>
     <view class="search-box">
       <text class="search-icon">🔍</text>
       <input class="search-input" placeholder="搜索药品、功效、说明书、禁忌" />
-    </view>
-
-    <view class="notice-strip">
-      <image class="notice-icon" src="/static/icons/warning.png" mode="aspectFit" />
-      <text class="notice-text">有 1 种药品库存偏低，1 种药品即将过期，建议优先处理。</text>
     </view>
 
     <view class="med-entry-grid">
@@ -77,11 +76,6 @@
       </view>
     </view>
 
-    <view class="ai-tip-card">
-      <text class="ai-title">AI 用药提醒</text>
-      <text class="ai-text">阿司匹林存在低库存风险，建议 3 天内补货；若同时服用降压药，请按医嘱监测血压。</text>
-    </view>
-
     <FloatingAction />
     </view>
   </view>
@@ -90,6 +84,7 @@
 <script>
 import FloatingAction from '@/components/FloatingAction/FloatingAction.vue'
 import { smoothNavigateTo } from '@/utils/router.js'
+import { inspectCabinet } from '@/services/modules/workflow.service.js'
 import { getMedicines } from '@/services/modules/medicine.service.js'
 
 export default {
@@ -99,6 +94,7 @@ export default {
   },
   data() {
     return {
+      cabinetFindings: [],
       weekList: [
         { label: '一', done: true },
         { label: '二', done: true },
@@ -120,6 +116,8 @@ export default {
       try {
         const items = await getMedicines()
         if (!Array.isArray(items)) return
+        const inspection = await inspectCabinet(items)
+        this.cabinetFindings = inspection.findings || []
         this.medicines = items.map((item, index) => {
           const percent = Math.max(0, Math.min(100, Number(item.stock) || 0))
           return {
@@ -166,11 +164,9 @@ export default {
 .search-box { margin-top: 32rpx; height: 92rpx; padding: 0 28rpx; display: flex; align-items: center; gap: 16rpx; border-radius: 18rpx; background: #FFFFFF; border: 1rpx solid #DDE7E1; box-shadow: 0 8rpx 20rpx rgba(31, 72, 55, 0.04); }
 .search-icon { font-size: 30rpx; opacity: 0.5; }
 .search-input { flex: 1; font-size: 28rpx; color: #17231F; }
-.notice-strip { display: flex; align-items: flex-start; gap: 16rpx; margin-top: 28rpx; padding: 24rpx; border-radius: 18rpx; background: #FFF7ED; border: 1rpx solid #F3D8B7; }
-.notice-icon { width: 36rpx; height: 36rpx; flex-shrink: 0; }.notice-text { flex: 1; font-size: 26rpx; line-height: 1.6; color: #B96B25; font-weight: 600; }
 .med-entry-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16rpx; margin-top: 28rpx; }
 .entry-card { min-height: 140rpx; padding: 24rpx 16rpx; border-radius: 18rpx; background: #FFFFFF; box-sizing: border-box; border: 1rpx solid #DDE7E1; box-shadow: 0 8rpx 20rpx rgba(31, 72, 55, 0.04); }.entry-card.primary { background: #F0FAF6; border-color: #BFE3D6; }.entry-icon { display: block; width: 36rpx; height: 36rpx; }.entry-title { display: block; margin-top: 12rpx; font-size: 24rpx; line-height: 1.3; color: #17231F; font-weight: 700; }.entry-desc { display: block; margin-top: 10rpx; font-size: 22rpx; color: #71817A; line-height: 1.3; }
-.section-card, .medicine-card, .ai-tip-card { margin-top: 32rpx; padding: 32rpx; border-radius: 22rpx; background: #FFFFFF; border: 1rpx solid #DDE7E1; box-shadow: 0 10rpx 24rpx rgba(31, 72, 55, 0.05); }
+.section-card, .medicine-card { margin-top: 32rpx; padding: 32rpx; border-radius: 22rpx; background: #FFFFFF; border: 1rpx solid #DDE7E1; box-shadow: 0 10rpx 24rpx rgba(31, 72, 55, 0.05); }
 .section-head { display: flex; justify-content: space-between; align-items: center; }
 .section-title { font-size: 32rpx; font-weight: 700; color: #17231F; }
 .section-subtitle { font-size: 24rpx; color: #71817A; }
@@ -200,7 +196,4 @@ export default {
 .med-actions { display: flex; gap: 16rpx; margin-top: 24rpx; }
 .med-action { flex: 1; height: 68rpx; line-height: 68rpx; border-radius: 14rpx; border: none; background: #F4F7F5; color: #50605A; font-size: 24rpx; border: 1rpx solid #DDE7E1; }
 .med-action.primary { background: #E1F3ED; color: #0E9F8E; font-weight: 700; border-color: #BFE3D6; }
-.ai-tip-card { background: #F0F7FA; border-color: #C9E3E8; }
-.ai-title { display: block; font-size: 30rpx; font-weight: 700; color: #187A83; }
-.ai-text { display: block; margin-top: 16rpx; font-size: 26rpx; line-height: 1.6; color: #50605A; }
 </style>

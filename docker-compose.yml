@@ -25,6 +25,67 @@ services:
       - "6334:6334"
     volumes:
       - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: health-assistant-searxng
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./runtime/searxng:/etc/searxng
+    environment:
+      SEARXNG_BASE_URL: http://localhost:8080/
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: health-assistant-backend
+    environment:
+      APP_ENV: development
+      HOST: 0.0.0.0
+      PORT: 8000
+      CORS_ORIGINS: "*"
+      DATABASE_URL: mysql+pymysql://health_user:health_password@mysql:3306/health_assistant
+      VECTOR_DB_URL: http://qdrant:6333
+      VECTOR_COLLECTION: health_documents_bge_m3
+      LOCAL_LLM_ENABLED: "true"
+      LOCAL_LLM_BASE_URL: http://host.docker.internal:11434
+      LOCAL_LLM_MODEL: qwen2.5:7b
+      FAST_LLM_MODEL: qwen2.5:7b
+      WEB_SEARCH_ENABLED: "true"
+      WEB_SEARCH_URL: http://searxng:8080/search
+      UPLOAD_DIR: /app/uploads
+      OCR_OUTPUT_DIR: /app/uploads/ocr
+      LEAFLET_OUTPUT_DIR: /app/uploads/leaflets
+      LEAFLET_BROWSER_USER_DATA_DIR: /app/runtime/leaflet-browser
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/runtime:/app/runtime
+    depends_on:
+      mysql:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      searxng:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/ping', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
 
 volumes:
   mysql_data:

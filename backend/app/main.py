@@ -1,4 +1,13 @@
 from pathlib import Path
+from contextlib import asynccontextmanager
+
+from app.services.leaflet_browser import _BAIKE_BROWSER
+
+
+@asynccontextmanager
+async def lifespan(app):
+    yield
+    _BAIKE_BROWSER.close()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,7 +17,7 @@ from app.api.router import api_router
 from app.api.upload import page_router as upload_page_router
 from app.core.config import settings
 
-app = FastAPI(title=settings.app_name)
+app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

@@ -104,6 +104,12 @@ class DrugLeafletORM(Base):
     published_at: Mapped[str] = mapped_column(String(32), nullable=False, default="")
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending_review", index=True)
+    reviewed_by: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    reviewed_at = mapped_column(DateTime(timezone=True), nullable=True)
+    review_note: Mapped[str] = mapped_column(String(1024), nullable=False, default="")
+    confirmed_by: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    confirmed_at = mapped_column(DateTime(timezone=True), nullable=True)
+    index_status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
     parser_version: Mapped[str] = mapped_column(String(32), nullable=False, default="leaflet-v1")
 
 

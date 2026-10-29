@@ -11,5 +11,6 @@ backend/**/__pycache__/
 backend/.env
 backend/health_assistant.db
 backend/uploads/*
+backend/runtime/*
 !backend/uploads/.gitkeep
 frontend/unpackage/

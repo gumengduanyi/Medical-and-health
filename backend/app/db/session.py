@@ -41,3 +41,17 @@ def init_db() -> None:
                         "ADD COLUMN position INTEGER NOT NULL DEFAULT 0"
                     )
                 )
+    if "drug_leaflets" in inspect(engine).get_table_names():
+        columns = {column["name"] for column in inspect(engine).get_columns("drug_leaflets")}
+        additions = {
+            "confirmed_by": "VARCHAR(64) NOT NULL DEFAULT ''",
+            "confirmed_at": "DATETIME NULL",
+            "index_status": "VARCHAR(32) NOT NULL DEFAULT 'pending'",
+            "reviewed_by": "VARCHAR(64) NOT NULL DEFAULT ''",
+            "reviewed_at": "DATETIME NULL",
+            "review_note": "VARCHAR(1024) NOT NULL DEFAULT ''",
+        }
+        with engine.begin() as connection:
+            for name, definition in additions.items():
+                if name not in columns:
+                    connection.execute(text(f"ALTER TABLE drug_leaflets ADD COLUMN {name} {definition}"))

@@ -17,8 +17,6 @@ from fastapi import UploadFile
 
 from app.core.config import settings
 from app.schemas.models import (
-    LeafletDiscoverRequest,
-    LeafletImportRequest,
     MedicalRecord,
     MedicalRecordItem,
     Medicine,
@@ -26,7 +24,6 @@ from app.schemas.models import (
     OcrConfirmResponse,
 )
 from app.services import data_store
-from app.services import leaflet_service
 from app.services.upload_service import detect_image_type
 
 
@@ -396,19 +393,6 @@ def _scan_image_path(image_path: Path, original_filename: str = "", source_type:
         confidence = 0
 
     _normalise_generated_html(result["output_dir"])
-    leaflet_candidate = None
-    if source_type == "medicine":
-        generic_name = _field_value(fields, ("药品名称", "通用名称", "商品名称"))
-        if generic_name:
-            discover_result = leaflet_service.discover_leaflet_candidates(
-                LeafletDiscoverRequest(
-                    generic_name=generic_name,
-                    manufacturer=_field_value(fields, ("生产企业", "生产厂家", "上市许可持有人", "制造商")),
-                    approval_number=_field_value(fields, ("批准文号",)),
-                    specification=_field_value(fields, ("规格",)),
-                )
-            )
-            leaflet_candidate = discover_result.candidates[0] if discover_result.candidates else None
     return {
         "id": image_path.stem,
         "sourceType": source_type,
@@ -425,7 +409,6 @@ def _scan_image_path(image_path: Path, original_filename: str = "", source_type:
         "file": original_filename or image_path.name,
         "storedFile": str(image_path),
         "outputDir": result["output_dir"],
-        "leafletCandidate": leaflet_candidate.model_dump(by_alias=True) if leaflet_candidate else None,
         "message": "PaddleOCR PPStructureV3 识别完成，请核对后再入库。",
     }
 
@@ -525,6 +508,8 @@ def _record_items(payload: OcrConfirmRequest) -> list[MedicalRecordItem]:
 
 def confirm_ocr_result(payload: OcrConfirmRequest) -> OcrConfirmResponse:
     source_type = payload.source_type
+    if not payload.confirmed:
+        raise ValueError("请先确认 OCR 字段后再归档")
     if not payload.fields and not payload.texts:
         raise ValueError("没有可确认的 OCR 结果")
     if source_type == "medicine":
@@ -541,45 +526,29 @@ def confirm_ocr_result(payload: OcrConfirmRequest) -> OcrConfirmResponse:
                 manufacturer=_field_value(payload.fields, ("生产企业", "生产厂家", "上市许可持有人", "制造商")),
                 approval_number=_field_value(payload.fields, ("批准文号",)),
                 stock=0,
-                expire=_field_value(payload.fields, ("有效期", "生产日期")),
+                expire=_field_value(payload.fields, ("有效期",)),
                 risk=f"OCR 确认入库，原文：{joined_text[:120]}",
                 imagePath=payload.stored_file,
                 ocrOutputDir=payload.output_dir,
             )
         )
-        leaflet = None
-        leaflet_candidate = payload.leaflet_candidate
-        if leaflet_candidate and leaflet_candidate.status == "candidate":
-            try:
-                leaflet = leaflet_service.import_baike_leaflet(
-                    LeafletImportRequest(
-                        generic_name=name,
-                        specification=medicine.specification,
-                        manufacturer=medicine.manufacturer,
-                        approval_number=medicine.approval_number,
-                    )
-                )
-            except ValueError as exc:
-                leaflet_candidate = leaflet_candidate.model_copy(
-                    update={
-                        "status": "manual_required",
-                        "reason": f"药品已入库，但说明书导入需要人工处理：{exc}",
-                    }
-                )
-        message = "OCR 药品和百度百科候选已确认入库。" if leaflet else "OCR 药品已确认入库，说明书候选需要人工处理。"
+        message = "OCR 药品已确认入库；说明书候选仍需单独审核和导入。"
         return OcrConfirmResponse(
             sourceType="medicine",
             medicine=medicine,
-            leafletCandidate=leaflet_candidate,
-            leaflet=leaflet,
             message=message,
         )
 
+    from datetime import date
+    try:
+        record_date = date.fromisoformat(payload.record_date).isoformat()
+    except ValueError as exc:
+        raise ValueError("请核对检查日期，使用 YYYY-MM-DD") from exc
     title = payload.title or "OCR 识别报告"
     record = data_store.create_record(
         MedicalRecord(
             title=title[:80],
-            date=time.strftime("%Y-%m-%d"),
+            date=record_date,
             status="已确认",
             content=_record_content(payload),
             items=_record_items(payload),

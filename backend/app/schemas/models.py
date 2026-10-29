@@ -67,6 +67,9 @@ class LeafletImportRequest(BaseModel):
     manufacturer: str = ""
     approval_number: str = ""
     published_at: str = ""
+    candidate_id: str = ""
+    content_hash: str = ""
+    confirmed: bool = False
 
 
 class LeafletDiscoverRequest(BaseModel):
@@ -81,16 +84,32 @@ class LeafletCandidate(BaseModel):
     source_url: str
     title: str = ""
     confidence: float
+    candidate_id: str = ""
+    content_hash: str = ""
+    authority: str = "encyclopedia"
+    missing_identity_fields: list[str] = Field(default_factory=list)
+    conflicting_fields: list[str] = Field(default_factory=list)
     sections_found: list[str] = Field(default_factory=list)
     sections: dict[str, str] = Field(default_factory=dict)
     missing_sections: list[str] = Field(default_factory=list)
+    matched_fields: list[str] = Field(default_factory=list, alias="matchedFields")
+    mismatched_fields: list[str] = Field(default_factory=list, alias="mismatchedFields")
+    http_status: int = Field(default=0, alias="httpStatus")
+    attempts: int = 1
+    elapsed_ms: int = Field(default=0, alias="elapsedMs")
     status: str = "candidate"
     reason: str = ""
+
+    model_config = {"populate_by_name": True}
 
 
 class LeafletDiscoverResponse(BaseModel):
     generic_name: str
     candidates: list[LeafletCandidate] = Field(default_factory=list)
+
+
+class LeafletReviewRequest(BaseModel):
+    note: str = ""
 
 
 class LeafletSection(BaseModel):
@@ -114,7 +133,15 @@ class LeafletImportResponse(BaseModel):
     content_type: str
     content_hash: str
     status: str
+    confirmed_by: str = ""
+    confirmed_at: str | None = None
+    index_status: str = "pending"
+    reviewed_by: str = Field(default="", alias="reviewedBy")
+    reviewed_at: str | None = Field(default=None, alias="reviewedAt")
+    review_note: str = Field(default="", alias="reviewNote")
     sections: list[LeafletSection] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
 
 
 class MedicalRecordItem(BaseModel):
@@ -137,6 +164,8 @@ class MedicalRecord(BaseModel):
 
 
 class OcrConfirmRequest(BaseModel):
+    confirmed: bool = False
+    record_date: str = Field(default="", alias="recordDate")
     source_type: str = Field(default="report", alias="sourceType")
     title: str = ""
     fields: list[dict[str, Any]] = Field(default_factory=list)

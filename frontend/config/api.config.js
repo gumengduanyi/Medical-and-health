@@ -4,7 +4,7 @@ export const ENV = {
 }
 
 export const API_CONFIG = {
-  baseURL: 'http://10.188.218.113:8000/api',
+  baseURL: 'http://172.20.10.2:8000/api',
   timeout: 15000,
   aiTimeout: 180000,
   uploadTimeout: 600000
@@ -35,6 +35,17 @@ export const API_ENDPOINTS = {
   ai: {
     chat: '/ai/chat',
     advice: '/ai/advice'
+  },
+  workflow: {
+    verify: '/workflows/verify',
+    cabinet: '/workflows/cabinet',
+    trends: '/workflows/trends'
+  },
+  leaflet: {
+    discover: '/leaflets/auto-discover',
+    importBaike: '/leaflets/import-baike',
+    list: '/leaflets',
+    approve: '/leaflets/:id/approve'
   },
   auth: {
     wechatLogin: '/auth/wechat-login',

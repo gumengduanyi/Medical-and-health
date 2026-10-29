@@ -24,6 +24,7 @@ class VectorHit:
 
 
 OLLAMA_TIMEOUT_SECONDS = 30
+_LOCAL_HTTP_OPENER = request.build_opener(request.ProxyHandler({}))
 _INDEXED_SIGNATURE: str | None = None
 
 
@@ -39,7 +40,7 @@ def _ollama_json(path: str, payload: dict[str, Any]) -> dict[str, Any]:
     url = f"{settings.local_llm_base_url.rstrip('/')}{path}"
     data = json.dumps(payload).encode("utf-8")
     req = request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
-    with request.urlopen(req, timeout=OLLAMA_TIMEOUT_SECONDS) as response:
+    with _LOCAL_HTTP_OPENER.open(req, timeout=OLLAMA_TIMEOUT_SECONDS) as response:
         return json.loads(response.read().decode("utf-8"))
 
 

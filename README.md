@@ -82,3 +82,21 @@ backend/app/services/knowledge_base.py
 ```text
 docker compose up -d mysql qdrant
 ```
+
+## 一键启动后端环境
+
+前端继续使用微信开发者工具打开，Docker 只启动 FastAPI、MySQL、Qdrant 和 SearXNG：
+
+```bash
+docker compose -p health-assistant up -d --build
+```
+
+查看服务状态：
+
+```bash
+docker compose -p health-assistant ps
+```
+
+启动完成后，后端地址为 `http://localhost:8000`，接口文档为 `http://localhost:8000/docs`，联网搜索服务为 `http://localhost:8080`。
+
+微信开发者工具仍通过 `frontend/config/api.config.js` 中的局域网地址访问后端，例如 `http://10.188.218.113:8000/api`。手机或开发者工具所在设备必须能访问运行 Docker 的电脑。
